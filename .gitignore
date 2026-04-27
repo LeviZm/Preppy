@@ -1,0 +1,26 @@
+# System Files
+.DS_Store
+Thumbs.db
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+.mypy_cache/
+
+# Python (General)
+__pycache__/
+*.py[cod]
+.venv/
+
+# Environment / Secrets
+.env
+.dev.vars
+
+# Private AI Instructions
+PROMPT.md
+.github/copilot-instructions.md
+
+# Cloudflare/Wrangler junk (CRITICAL)
+.wrangler/
+backend/.wrangler/
