@@ -20,6 +20,8 @@ __pycache__/
 # Private AI Instructions
 PROMPT.md
 .github/copilot-instructions.md
+PLAN.md
+.\Preppy-Planning-files\*
 
 # Cloudflare/Wrangler junk (CRITICAL)
 .wrangler/
