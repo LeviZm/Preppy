@@ -50,6 +50,8 @@ dependencies = [
     { name = "datetime" },
     { name = "flask" },
     { name = "flask-cors" },
+    { name = "flask-jwt" },
+    { name = "flask-jwt-extended" },
     { name = "flask-migrate" },
     { name = "flask-sqlalchemy" },
     { name = "google-generativeai" },
@@ -57,6 +59,7 @@ dependencies = [
     { name = "python-dotenv" },
     { name = "supabase" },
     { name = "types-flask-cors" },
+    { name = "types-flask-migrate" },
     { name = "types-psycopg2" },
 ]
 
@@ -65,6 +68,8 @@ requires-dist = [
     { name = "datetime", specifier = ">=6.0" },
     { name = "flask", specifier = ">=3.1.3" },
     { name = "flask-cors", specifier = ">=6.0.2" },
+    { name = "flask-jwt", specifier = ">=0.2.0" },
+    { name = "flask-jwt-extended", specifier = ">=4.7.1" },
     { name = "flask-migrate", specifier = ">=4.1.0" },
     { name = "flask-sqlalchemy", specifier = ">=3.1.1" },
     { name = "google-generativeai", specifier = ">=0.8.6" },
@@ -72,6 +77,7 @@ requires-dist = [
     { name = "python-dotenv", specifier = ">=1.2.2" },
     { name = "supabase", specifier = ">=2.29.0" },
     { name = "types-flask-cors", specifier = ">=6.0.0.20260408" },
+    { name = "types-flask-migrate", specifier = ">=4.1.0.20260408" },
     { name = "types-psycopg2", specifier = ">=2.9.21.20260422" },
 ]
 
@@ -291,6 +297,30 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/70/74/0fc0fa68d62f21daef41017dafab19ef4b36551521260987eb3a5394c7ba/flask_cors-6.0.2.tar.gz", hash = "sha256:6e118f3698249ae33e429760db98ce032a8bf9913638d085ca0f4c5534ad2423", size = 13472, upload-time = "2025-12-12T20:31:42.861Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/4f/af/72ad54402e599152de6d067324c46fe6a4f531c7c65baf7e96c63db55eaf/flask_cors-6.0.2-py3-none-any.whl", hash = "sha256:e57544d415dfd7da89a9564e1e3a9e515042df76e12130641ca6f3f2f03b699a", size = 13257, upload-time = "2025-12-12T20:31:41.3Z" },
+]
+
+[[package]]
+name = "flask-jwt"
+version = "0.2.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "flask" },
+    { name = "itsdangerous" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/bf/f9/f89fc5c5e7c846c0ac96926db111c6660a733f27d9de373d1bfd8153281d/Flask-JWT-0.2.0.tar.gz", hash = "sha256:fed5bae2f241e80d1840c120b3f47d56315905138c735c7b659a42a7f141dd97", size = 8682, upload-time = "2014-06-10T17:20:19.627Z" }
+
+[[package]]
+name = "flask-jwt-extended"
+version = "4.7.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "flask" },
+    { name = "pyjwt" },
+    { name = "werkzeug" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/51/16/96b101f18cba17ecce3225ab07bc4c8f23e6befd8552dbbed87482e7c7fb/flask_jwt_extended-4.7.1.tar.gz", hash = "sha256:8085d6757505b6f3291a2638c84d207e8f0ad0de662d1f46aa2f77e658a0c976", size = 34411, upload-time = "2024-11-20T23:44:41.044Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/67/34/9a91da47b1565811ab4aa5fb134632c8d1757960bfa7d457f486947c4d75/Flask_JWT_Extended-4.7.1-py2.py3-none-any.whl", hash = "sha256:52f35bf0985354d7fb7b876e2eb0e0b141aaff865a22ff6cc33d9a18aa987978", size = 22588, upload-time = "2024-11-20T23:44:39.435Z" },
 ]
 
 [[package]]
@@ -1356,6 +1386,19 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/22/68/e58191af5b56e836a4a2e2583ecfad91bde176940edf1bfc8ea706a5f74d/types_flask_cors-6.0.0.20260408.tar.gz", hash = "sha256:8c440c158c335819bb9286870c9770687ae6d943510fdd97e4b573324f8d2178", size = 10223, upload-time = "2026-04-08T04:35:42.608Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/a2/8d/eb905e231aaed6c0853f002446a1fb12d5a32d79b688f2cdd4f8d6e6ce03/types_flask_cors-6.0.0.20260408-py3-none-any.whl", hash = "sha256:ccd8801862b3ebd27754734b84fc3dcfebd0f8056380ae88254c7dd799d64a39", size = 9993, upload-time = "2026-04-08T04:35:41.452Z" },
+]
+
+[[package]]
+name = "types-flask-migrate"
+version = "4.1.0.20260408"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "flask" },
+    { name = "flask-sqlalchemy" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/46/31/56f5607fca2ad4e41da095b0e22ce9749d29d985df8c0229907bf662413b/types_flask_migrate-4.1.0.20260408.tar.gz", hash = "sha256:65ef927584777eac9a4591eb8320c09eb6eb8862d2ffdd6e23ad485a2869b228", size = 8773, upload-time = "2026-04-08T04:36:22.197Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/cd/4b/1d1b300251d33f1a97004ef8bba53139116b00872cfb85521d1412259627/types_flask_migrate-4.1.0.20260408-py3-none-any.whl", hash = "sha256:ffdacb78f6697422aa09bdebba34f4133b2443a95a59761c279fc5d368c009d9", size = 8670, upload-time = "2026-04-08T04:36:21.394Z" },
 ]
 
 [[package]]
