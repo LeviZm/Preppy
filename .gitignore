@@ -18,11 +18,5 @@ __pycache__/
 .dev.vars
 
 # Private AI Instructions
-PROMPT.md
 .github/copilot-instructions.md
-PLAN.md
-.\Preppy-Planning-files\*
-
-# Cloudflare/Wrangler junk (CRITICAL)
-.wrangler/
-backend/.wrangler/
+FolderStructure.md
