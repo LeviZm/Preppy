@@ -7,9 +7,9 @@ included for later migration to a schema library if you prefer.
 """
 
 from decimal import Decimal
-from typing import Any, Dict, List
+from typing import Any, Dict
 
-from .models import Recipe, Ingredient, RecipeIngredient, User, Household, PantryItem, MealPlan, ShoppingList
+from .models import Recipe, Ingredient, RecipeIngredient, User, Household, PantryItem
 
 
 def _decimal_to_str(value: Any) -> Any:
@@ -41,9 +41,11 @@ def recipeingredient_to_dict(ri: RecipeIngredient) -> Dict[str, Any]:
     Returns:
         Dict[str, Any]: A dictionary representing the RecipeIngredient.
     """
+    ingredient = getattr(ri, "ingredient", None)
+
     return {
         "id": ri.id,
-        "ingredient": ingredient_to_dict(ri.ingredient) if ri.ingredient is not None else None,
+        "ingredient": ingredient_to_dict(ingredient) if ingredient is not None else None,
         "quantity": _decimal_to_str(ri.quantity),
         "unit": ri.unit,
         "prep_note": ri.prep_note,
@@ -116,30 +118,34 @@ def pantryitem_to_dict(p: PantryItem) -> Dict[str, Any]:
     Returns:
         Dict[str, Any]: A dictionary representing the PantryItem.
     """
+    ingredient = getattr(p, "ingredient", None)
+
     return {
         "id": p.id,
         "user_id": p.user_id,
-        "ingredient": ingredient_to_dict(p.ingredient) if p.ingredient is not None else None,
+        "ingredient": ingredient_to_dict(ingredient) if ingredient is not None else None,
         "quantity": _decimal_to_str(p.quantity),
         "unit": p.unit,
         "updated_at": p.updated_at.isoformat() if getattr(p, "updated_at", None) is not None else None,
     }
 
 
-def mealplan_to_dict(m: MealPlan) -> Dict[str, Any]:
+def mealplan_to_dict(m: Any) -> Dict[str, Any]:
     """
-    Placeholder serializer for future MealPlan model.
-    Args:
-        m (MealPlan): The MealPlan instance to convert.
+    Placeholder serializer for a future model.
+
+    The model is not implemented yet, so this returns only an id-shaped
+    response to keep the serializer API predictable during development.
     """
     return {"id": getattr(m, "id", None)}
 
 
-def shoppinglist_to_dict(s: ShoppingList) -> Dict[str, Any]:
+def shoppinglist_to_dict(s: Any) -> Dict[str, Any]:
     """
-    Placeholder serializer for future ShoppingList model.
-    Args:
-        s (ShoppingList): The ShoppingList instance to convert.
+    Placeholder serializer for a future model.
+
+    The model is not implemented yet, so this returns only an id-shaped
+    response to keep the serializer API predictable during development.
     """
 
     return {"id": getattr(s, "id", None)}

@@ -75,16 +75,19 @@ class HouseholdMember(db.Model):
     )
 
     id = db.Column(db.Integer, primary_key=True)
+
     household_id = db.Column(
         db.Integer,
         db.ForeignKey("households.id", ondelete="CASCADE"),
         nullable=False,
     )
+
     user_id = db.Column(
         db.Integer,
         db.ForeignKey("users.id", ondelete="CASCADE"),
         nullable=False,
     )
+
     role = db.Column(db.String(30), nullable=False, default="member")
     joined_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
 
@@ -124,6 +127,7 @@ class Recipe(db.Model):
         db.ForeignKey("users.id", ondelete="CASCADE"),
         nullable=False,
     )
+
     household_id = db.Column(
         db.Integer,
         db.ForeignKey("households.id", ondelete="SET NULL"),
