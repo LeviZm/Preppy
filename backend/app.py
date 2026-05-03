@@ -1,73 +1,52 @@
-'''
-Flask Backend for the Preppy app
-'''
-
-from flask import Flask, jsonify, request
-from flask_sqlalchemy import SQLAlchemy
-from flask_cors import CORS
-from dotenv import load_dotenv
+"""
+Flask Backend for the Preppy app.
+"""
 
 import os
-from urllib.parse import quote_plus, urlunparse
+
+from dotenv import load_dotenv
+from flask import Flask, jsonify, request
+
+from .extensions import db, cors, migrate, jwt
+from .settings import Config
 
 # Load environment variables from .env
 load_dotenv()
 
-db = SQLAlchemy()
-
 def create_app():
-    '''
+    """
     Factory function to create and configure the Flask application.
     This allows for better modularity and testing. The app is configured
     with the database URI from environment variables, CORS is enabled, and
     routes are defined for the API endpoints. Error handlers are also set
     up to return JSON responses for common HTTP errors.
-    '''
-
-    # Try to construct the SQLAlchemy connection string from DATABASE_URL
-    uri = os.getenv("DATABASE_URL")
-
-    if not uri:
-        # If uri is not set, try to construct it from individual components
-        user = os.getenv("USER")
-        raw_pw = os.getenv("PASSWORD")
-        host = os.getenv("HOST")
-        port = os.getenv("PORT")
-        dbname = os.getenv("DBNAME")
-
-        # Make sure we encode the password to handle special characters
-        if not raw_pw:
-            raise RuntimeError("Database password is missing in .env file.")
-
-        # Try to encode the password, handle any potential errors in encoding
-        try:
-            password = quote_plus(raw_pw)
-        except Exception as e:
-            raise RuntimeError("Error encoding database password") from e
-
-        # Check that all components are present
-        if not all([user, password, host, port, dbname]):
-            raise RuntimeError("One or more database connection environment variables are missing.\
-                Please check your .env file.")
-
-        # If we have them, make the connection string
-        netloc = f"{user}:{password}@{host}:{port}"
-        uri = urlunparse(("postgresql+psycopg2", netloc, f"/{dbname}", "", "sslmode=require", ""))
+    """
 
     flask_app = Flask(__name__)
 
-    flask_app.config['SQLALCHEMY_DATABASE_URI'] = uri
-    flask_app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-
-    CORS(flask_app)
+    flask_app.config.from_object(Config)
 
     db.init_app(flask_app)
+    # Initialize other extensions
+    cors.init_app(flask_app)
+    migrate.init_app(flask_app, db)
+
+    # JWT config - keep secret in env for production
+    flask_app.config.setdefault("JWT_SECRET_KEY", os.getenv("JWT_SECRET_KEY", "change-me"))
+    jwt.init_app(flask_app)
+
+    # register blueprints here to avoid circular imports at module import time
+    from .routes.meals import meals_bp
+    from .routes.auth import auth_bp
+
+    flask_app.register_blueprint(meals_bp)
+    flask_app.register_blueprint(auth_bp)
 
     @flask_app.before_request
     def log_request():
-        '''
+        """
         Middleware to log incoming requests for debugging purposes.
-        '''
+        """
 
         print(f"Received {request.method} request for {request.path}")
         if request.is_json:
@@ -75,19 +54,19 @@ def create_app():
 
     @flask_app.route('/')
     def home():
-        '''
+        """
         Home route to verify the backend is up and running.
-        '''
+        """
 
         return jsonify({"message": "Preppy AI Backend is Running!"})
 
     @flask_app.route('/api/generate-meal', methods=['POST'], strict_slashes=False)
     def generate_meal():
-        '''
+        """
         This endpoint receives a POST request with a JSON body containing a 'prompt' key
         for Gemini. It then processes the prompt and returns a json response from the Gemini API.
         This generates a meal for the database.
-        '''
+        """
         # Validate the request sends a JSON body
         if not request.is_json:
             return jsonify({
@@ -115,29 +94,48 @@ def create_app():
 
     @flask_app.errorhandler(400)
     def bad_request(e):
+        """
+        Error handler for 400 Bad Request errors.
+        :param e:
+        :return:
+        """
         return jsonify({
             "error": "Bad Request",
-            "message": "Check your JSON format. Did you include the 'prompt' key?"
+            "message": f"Check your JSON format. Did you include the 'prompt' key? ({e})"
         }), 400
 
     @flask_app.errorhandler(404)
     def resource_not_found(e):
+        """
+        Error handler for 404 Resource Not Found errors.
+        :param e:
+        :return:
+        """
         return jsonify(error=str(e), message="Make sure your URL is correct and\
         doesn't have an extra slash!"), 404
 
     @flask_app.errorhandler(405)
     def method_not_allowed(e):
+        """
+        Error handler for 405 Method Not Allowed errors.
+        :param e:
+        :return:
+        """
         return jsonify({
             "error": "Method Not Allowed",
-            "message": "You are trying to 'GET' this URL,\
-                but it requires a 'POST' with a JSON body."
+            "message": f"You are trying to use the wrong HTTP method: {e}"
         }), 405
 
     @flask_app.errorhandler(500)
     def internal_server_error(e):
+        """
+        Error handler for 500 Internal Server Error errors.
+        :param e:
+        :return:
+        """
         return jsonify({
             "error": "Internal Server Error",
-            "message": "The backend had a hiccup. Check the terminal logs."
+            "message": f"The backend had a hiccup. Check the terminal logs. ({e})"
         }), 500
 
     return flask_app
