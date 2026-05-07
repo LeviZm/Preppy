@@ -1,5 +1,9 @@
 """SQLAlchemy data models for meals, meal plans, shopping lists, and pantry management."""
 
+from datetime import datetime
+
+from ..extensions import db
+
 # -----------------------------------------------------------------------
 #       Models for Meal Planning and Shopping List Management
 # -----------------------------------------------------------------------
