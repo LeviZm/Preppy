@@ -2,7 +2,7 @@
 
 import datetime
 
-from .extensions import db
+from ..extensions import db
 
 # ----------------------------------------------------------------------
 #                User and Household Models
