@@ -2,6 +2,7 @@
 Flask Backend for the Preppy app.
 """
 
+import logging
 import os
 
 from dotenv import load_dotenv
@@ -9,6 +10,8 @@ from flask import Flask, jsonify, request
 
 from .extensions import db, cors, migrate, jwt
 from .settings import Config
+
+logger = logging.getLogger(__name__)
 
 # Load environment variables from .env
 load_dotenv()
@@ -27,6 +30,7 @@ def create_app():
     flask_app.config.from_object(Config)
 
     db.init_app(flask_app)
+    
     # Initialize other extensions
     cors.init_app(flask_app)
     migrate.init_app(flask_app, db)
@@ -36,27 +40,26 @@ def create_app():
     jwt.init_app(flask_app)
 
     # register blueprints here to avoid circular imports at module import time
-    from .routes.meals import meals_bp
-    from .routes.auth import auth_bp
+    from .routes.auth_routes import auth_bp
+    from .routes.ingredients_routes import ingredients_bp
+    from .routes.meals_routes import meals_bp
+    from .routes.recipe_routes import recipes_bp
+    from .routes.shopping_routes import shopping_bp
 
     flask_app.register_blueprint(meals_bp)
     flask_app.register_blueprint(auth_bp)
+    flask_app.register_blueprint(recipes_bp)
+    flask_app.register_blueprint(ingredients_bp)
+    flask_app.register_blueprint(shopping_bp)
 
     @flask_app.before_request
     def log_request():
-        """
-        Middleware to log incoming requests for debugging purposes.
-        """
-
-        print(f"Received {request.method} request for {request.path}")
-        if request.is_json:
-            print(f"Data: {request.get_json()}")
+        """Middleware to log incoming requests for debugging purposes."""
+        logger.debug("Received %s %s", request.method, request.path)
 
     @flask_app.route('/')
     def home():
-        """
-        Home route to verify the backend is up and running.
-        """
+        """Home route to verify the backend is up and running."""
 
         return jsonify({"message": "Preppy AI Backend is Running!"})
 
@@ -84,8 +87,7 @@ def create_app():
                 "message": "The 'prompt' field is required."
             }), 400
 
-        # print test to verify the request was received correctly
-        print(f"Received request for: {user_prompt}")
+        logger.info("generate-meal request received for prompt: %.80r", user_prompt)
 
         return jsonify({
             "status": "success",
@@ -99,32 +101,28 @@ def create_app():
         :param e:
         :return:
         """
-        return jsonify({
-            "error": "Bad Request",
-            "message": f"Check your JSON format. Did you include the 'prompt' key? ({e})"
-        }), 400
+        logger.warning("400 Bad Request: %s", e)
+        return jsonify({"error": "Bad Request"}), 400
 
     @flask_app.errorhandler(404)
-    def resource_not_found(e):
+    def resource_not_found(_):
         """
         Error handler for 404 Resource Not Found errors.
         :param e:
         :return:
         """
-        return jsonify(error=str(e), message="Make sure your URL is correct and\
-        doesn't have an extra slash!"), 404
+        logger.warning("404 Not Found: %s %s", request.method, request.path)
+        return jsonify({"error": "Not Found"}), 404
 
     @flask_app.errorhandler(405)
-    def method_not_allowed(e):
+    def method_not_allowed(_):
         """
         Error handler for 405 Method Not Allowed errors.
         :param e:
         :return:
         """
-        return jsonify({
-            "error": "Method Not Allowed",
-            "message": f"You are trying to use the wrong HTTP method: {e}"
-        }), 405
+        logger.warning("405 Method Not Allowed: %s %s", request.method, request.path)
+        return jsonify({"error": "Method Not Allowed"}), 405
 
     @flask_app.errorhandler(500)
     def internal_server_error(e):
@@ -133,10 +131,8 @@ def create_app():
         :param e:
         :return:
         """
-        return jsonify({
-            "error": "Internal Server Error",
-            "message": f"The backend had a hiccup. Check the terminal logs. ({e})"
-        }), 500
+        logger.exception("500 Internal Server Error: %s", e)
+        return jsonify({"error": "Internal Server Error"}), 500
 
     return flask_app
 
