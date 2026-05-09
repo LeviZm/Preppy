@@ -1,6 +1,6 @@
 """SQLAlchemy data models for meals, meal plans, shopping lists, and pantry management."""
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 from ..extensions import db
 
@@ -47,9 +47,9 @@ class PantryItem(db.Model):
     quantity = db.Column(db.Numeric(10, 2), nullable=False)
     unit = db.Column(db.String(30), nullable=False)
     updated_at = db.Column(
-        db.DateTime,
-        default=datetime.utcnow,
-        onupdate=datetime.utcnow,
+        db.DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
         nullable=False,
     )
 

@@ -1,6 +1,7 @@
 """SQLAlchemy data models for user and household management."""
 
 import datetime
+from datetime import timezone
 
 from ..extensions import db
 
@@ -19,7 +20,7 @@ class User(db.Model):
     username = db.Column(db.String(50), unique=True, nullable=False)
     email = db.Column(db.String(120), unique=True, nullable=False)
     password_hash = db.Column(db.String(256), nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    created_at = db.Column(db.DateTime(timezone=True), default=lambda: datetime.datetime.now(timezone.utc), nullable=False)
 
     recipes = db.relationship("Recipe", back_populates="owner")
     household_memberships = db.relationship(
@@ -46,7 +47,7 @@ class Household(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(120), nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    created_at = db.Column(db.DateTime(timezone=True), default=lambda: datetime.datetime.now(timezone.utc), nullable=False)
 
     members = db.relationship(
         "HouseholdMember",
@@ -83,7 +84,7 @@ class HouseholdMember(db.Model):
     )
 
     role = db.Column(db.String(30), nullable=False, default="member")
-    joined_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    joined_at = db.Column(db.DateTime(timezone=True), default=lambda: datetime.datetime.now(timezone.utc), nullable=False)
 
     household = db.relationship("Household", back_populates="members")
     user = db.relationship("User", back_populates="household_memberships")
