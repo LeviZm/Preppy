@@ -9,7 +9,7 @@ from ..extensions import db
 #                User and Household Models
 # ----------------------------------------------------------------------
 
-class User(db.Model):
+class User(db.Model):  # type: ignore[name-defined]
     """
     An application user who can own recipes and join households.
     """
@@ -38,7 +38,7 @@ class User(db.Model):
     def __repr__(self) -> str:
         return f"<User id={self.id} username={self.username}>"
 
-class Household(db.Model):
+class Household(db.Model):  # type: ignore[name-defined]
     """
     A collaboration group where users can share meal planning.
     """
@@ -60,7 +60,7 @@ class Household(db.Model):
         return f"<Household id={self.id} name={self.name}>"
 
 
-class HouseholdMember(db.Model):
+class HouseholdMember(db.Model):  # type: ignore[name-defined]
     """
     Join table for many-to-many relation between users and households.
     """

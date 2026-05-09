@@ -3,114 +3,62 @@ Recipe service implementations
 This module provides small helper functions used by route handlers.
 """
 
+import logging
 from decimal import Decimal, InvalidOperation
-from typing import List, Dict, Optional
+from typing import Any, List, Dict, Optional, cast
+
+from sqlalchemy.orm import joinedload
+from sqlalchemy.orm.attributes import QueryableAttribute
 
 from ..extensions import db
-from ..models import Recipe, Ingredient, RecipeIngredient
+from ..models import Recipe, RecipeIngredient
+from .exceptions import NotFoundError, ValidationError
+from .ingredients_services import get_or_create_ingredient
+from .transaction import atomic
 
-# Create Recipe
-def create_recipe(
-    owner_user_id: int,
-    name: str,
-    instructions: str,
-    ingredients: List[Dict]
-) -> Recipe:
-    """
-    Create a recipe and its recipe-ingredient rows.
+logger = logging.getLogger(__name__)
 
-    Ingredients is a list of dicts:
-    {"name": str, "quantity": Decimal|str, "unit": str, "prep_note": str (opt)}
-    """
 
-    recipe = Recipe(owner_user_id=owner_user_id, name=name, instructions=instructions)
-    db.session.add(recipe)
-    db.session.flush()  # ensure recipe.id is available
+def _qa(attr: Any) -> QueryableAttribute[Any]:
+    """Cast relationship descriptors for SQLAlchemy loader options type checkers."""
 
-    for idx, item in enumerate(ingredients):
-        iname = item.get("name")
-        if not iname:
-            continue
-        ing = Ingredient.query.filter_by(name=iname).first()
-        if not ing:
-            ing = Ingredient(name=iname)
-            db.session.add(ing)
-            db.session.flush()
-
-        qty = item.get("quantity", 0)
-        unit = item.get("unit", "unit")
-        prep = item.get("prep_note")
-
-        try:
-            qty_dec = Decimal(str(qty))
-        except (InvalidOperation, ValueError):
-            qty_dec = Decimal(0)
-
-        ri = RecipeIngredient(
-            recipe_id=recipe.id,
-            ingredient_id=ing.id,
-            quantity=qty_dec,
-            unit=unit,
-            prep_note=prep,
-            sort_order=idx,
-        )
-        db.session.add(ri)
-
-    db.session.commit()
-    return recipe
+    return cast(QueryableAttribute[Any], attr)
 
 # ---------------------------------------------------------
-# Get Recipes
+# Private helpers
 # ---------------------------------------------------------
 
-def get_recipe(recipe_id: int, user_id: int) -> Recipe:
+def _validate_name(name: str) -> str:
+    name = name.strip()
+
+    if not name:
+        raise ValueError("Recipe name is required")
+
+    if len(name) > 128:
+        raise ValueError("Recipe name must be less than 128 characters")
+
+    return name
+
+def _parse_quantity(qty: Any) -> Decimal:
+    """Parse a quantity value into a Decimal, defaulting to 0 on error."""
+
+    try:
+        return Decimal(str(qty))
+    except (InvalidOperation, ValueError, TypeError):
+        return Decimal(0)
+
+
+def _fetch_owned(recipe_id: int, user_id: int) -> Recipe:
     """
-    Get a recipe by ID, or None if not found.
+    Fetch a recipe by ID ensuring it belongs to the given user.
+    Raises NotFoundError if the recipe doesn't exist or doesn't belong to the user.
     """
 
-    recipe = (
-        Recipe.query
-        .filter_by(id=recipe_id, owner_user_id=user_id)
-        .options(db.joinedload(Recipe.ingredients)
-        .joinedload(RecipeIngredient.ingredient))
-        .first()
-    )
-
+    recipe = Recipe.query.filter_by(id=recipe_id, owner_user_id=user_id).first()
     if not recipe:
+        logger.warning("Recipe %d not found or not owned by user %d.", recipe_id, user_id)
         raise NotFoundError("Recipe not found.")
-
     return recipe
-
-
-def get_all_recipes(user_id: int) -> List[Recipe]:
-    """
-    Get all recipes, ordered by creation date descending.
-    """
-
-    recipes = (
-        Recipe.query
-        .filter_by(owner_user_id=user_id)
-        .order_by(Recipe.created_at.desc())
-        .all()
-    )
-
-    if not recipes:
-        raise NotFoundError("No recipes found.")
-
-    return recipes
-
-def get_recipes_by_user(owner_user_id: int) -> List[Recipe]:
-    """Return recipes owned by a given user, newest first."""
-
-    return (
-        Recipe.query.filter_by(owner_user_id=owner_user_id)
-        .order_by(Recipe.created_at.desc())
-        .all()
-    )
-
-# -----------------------------------------------------------------
-# Update Recipes
-# -----------------------------------------------------------------
 
 def _sync_recipe_ingredients(recipe: Recipe, ingredients: List[Dict]) -> None:
     """
@@ -139,18 +87,10 @@ def _sync_recipe_ingredients(recipe: Recipe, ingredients: List[Dict]) -> None:
         incoming_names.append(name)
 
         # Ensure Ingredient exists
-        ing = Ingredient.query.filter_by(name=name).first()
-        if not ing:
-            ing = Ingredient(name=name)
-            db.session.add(ing)
-            db.session.flush()
+        ing = get_or_create_ingredient(name)
 
         # Prepare fields
-        qty = item.get("quantity", 0)
-        try:
-            qty_dec = Decimal(str(qty))
-        except (InvalidOperation, ValueError):
-            qty_dec = Decimal(0)
+        qty_dec = _parse_quantity(item.get("quantity", 0))
         unit = item.get("unit") or "unit"
         prep = item.get("prep_note")
 
@@ -178,6 +118,94 @@ def _sync_recipe_ingredients(recipe: Recipe, ingredients: List[Dict]) -> None:
         if ri.ingredient.name not in incoming_names:
             db.session.delete(ri)
 
+def create_recipe(
+    owner_user_id: int,
+    name: str,
+    instructions: str,
+    ingredients: List[Dict]
+) -> Recipe:
+    """
+    Create a recipe and its recipe-ingredient rows.
+
+    Ingredients is a list of dicts:
+    {"name": str, "quantity": Decimal|str, "unit": str, "prep_note": str (opt)}
+    """
+
+    resolved = [
+        (item, get_or_create_ingredient(item["name"]))
+        for item in ingredients
+        if item.get("name")
+    ]
+
+    with atomic("A recipe with this name already exists."):
+        recipe = Recipe(owner_user_id=owner_user_id, name=name, instructions=instructions)
+        db.session.add(recipe)
+        db.session.flush()  # ensure recipe.id is available
+
+        for idx, (item, ing) in enumerate(resolved):
+            ri = RecipeIngredient(
+                recipe_id=recipe.id,
+                ingredient_id=ing.id,
+                quantity=_parse_quantity(item.get("quantity", 0)),
+                unit=item.get("unit", "unit"),
+                prep_note=item.get("prep_note"),
+                sort_order=idx,
+            )
+            db.session.add(ri)
+            
+    logger.info(
+        "Recipe %d '%s' created for user %d with %d ingredients.",
+        recipe.id, recipe.name, recipe.owner_user_id, len(resolved)
+    )
+
+    return recipe
+
+# ---------------------------------------------------------
+# Get Recipes
+# ---------------------------------------------------------
+
+def get_recipe(recipe_id: int, user_id: int) -> Recipe:
+    """
+    Get a recipe by ID, or None if not found.
+    """
+
+    logger.debug("Fetching recipe %d for user %d.", recipe_id, user_id)
+
+    recipe = (
+        Recipe.query
+        .filter_by(id=recipe_id, owner_user_id=user_id)
+        .options(joinedload(_qa(Recipe.recipe_ingredients))
+        .joinedload(_qa(RecipeIngredient.ingredient)))
+        .first()
+    )
+
+    if not recipe:
+        logger.warning("Recipe %d not found for user %d.", recipe_id, user_id)
+        raise NotFoundError("Recipe not found.")
+
+    return recipe
+
+def list_recipes(user_id: int) -> List[Recipe]:
+    """
+    Get all recipes for a user, ordered by newest first.
+    Eagerly loads ingredients to prevent N+1 query issues.
+    """
+
+    logger.debug("Listing recipes for user %d.", user_id)
+    return (
+        Recipe.query
+        .options(
+            joinedload(_qa(Recipe.recipe_ingredients))
+            .joinedload(_qa(RecipeIngredient.ingredient))
+        )
+        .filter_by(owner_user_id=user_id)
+        .order_by(Recipe.created_at.desc())
+        .all()
+    )
+
+# -----------------------------------------------------------------
+# Update Recipes
+# -----------------------------------------------------------------
 
 def update_recipe(
     user_id: int,
@@ -185,7 +213,7 @@ def update_recipe(
     name: Optional[str] = None,
     instructions: Optional[str] = None,
     ingredients: Optional[List[Dict]] = None,
-) -> Optional[Recipe]:
+) -> Recipe:
     """
     Update a recipe's basic fields and optionally its ingredient list.
 
@@ -193,90 +221,75 @@ def update_recipe(
     to match the provided list (create/update/delete as needed).
     """
 
-    recipe = Recipe.query.filter_by(id=recipe_id, owner_user_id=user_id).first()
-    
-    if not recipe:
-        return None
+    recipe = _fetch_owned(recipe_id, user_id)
 
-    if name is not None:
-        recipe.name = name
-    if instructions is not None:
-        recipe.instructions = instructions
+    with atomic("A recipe with this name already exists."):
+        if name is not None:
+            recipe.name = name
+        if instructions is not None:
+            recipe.instructions = instructions
+        if ingredients is not None:
+            _sync_recipe_ingredients(recipe, ingredients)
 
-    if ingredients is not None:
-        _sync_recipe_ingredients(recipe, ingredients)
-
-    db.session.commit()
+    logger.info("Recipe %d updated for user %d.", recipe_id, user_id)
     return recipe
 
-def delete_recipe(recipe_id: int, user_id: int) -> bool:
+def delete_recipe(recipe_id: int, user_id: int) -> None:
     """
-    Delete a recipe and its associations. Returns True if deleted, False if not found.
+    Delete a recipe and its associations.
+    Raises NotFoundError if the recipe doesn't exist or doesn't belong to the user.
     """
 
-    recipe = Recipe.query.filter_by(id=recipe_id, owner_user_id=user_id).first()
-    if not recipe:
-        return False
-    db.session.delete(recipe)
-    db.session.commit()
-    return True
-
+    recipe = _fetch_owned(recipe_id, user_id)
+    with atomic():
+        db.session.delete(recipe)
+    logger.info("Recipe %d deleted by user %d.", recipe_id, user_id)
 
 def add_ingredient_to_recipe(
     recipe_id: int,
     ingredient_data: Dict,
     user_id: int
-    ) -> Optional[RecipeIngredient]:
+) -> RecipeIngredient:
     """
     Add a single ingredient to a recipe. Returns the created `RecipeIngredient`.
+    Raises NotFoundError if the recipe doesn't exist or doesn't belong to the user.
     """
 
-    recipe = Recipe.query.filter_by(id=recipe_id, owner_user_id=user_id).first()
-    if not recipe:
-        return None
+    recipe = _fetch_owned(recipe_id, user_id)
 
     name = (ingredient_data.get("name") or "").strip()
     if not name:
-        return None
+        raise ValidationError("Ingredient name is required.")
 
-    ing = Ingredient.query.filter_by(name=name).first()
-    if not ing:
-        ing = Ingredient(name=name)
-        db.session.add(ing)
-        db.session.flush()
+    ing = get_or_create_ingredient(name)
 
-    qty = ingredient_data.get("quantity", 0)
-    try:
-        qty_dec = Decimal(str(qty))
-    except (InvalidOperation, ValueError):
-        qty_dec = Decimal(0)
+    with atomic("This ingredient already exists in the recipe."):
+        ri = RecipeIngredient(
+            recipe_id=recipe.id,
+            ingredient_id=ing.id,
+            quantity=_parse_quantity(ingredient_data.get("quantity", 0)),
+            unit=ingredient_data.get("unit") or "unit",
+            prep_note=ingredient_data.get("prep_note"),
+            sort_order=ingredient_data.get("sort_order", 0),
+        )
+        db.session.add(ri)
 
-    ri = RecipeIngredient(
-        recipe_id=recipe.id,
-        ingredient_id=ing.id,
-        quantity=qty_dec,
-        unit=ingredient_data.get("unit") or "unit",
-        prep_note=ingredient_data.get("prep_note"),
-        sort_order=ingredient_data.get("sort_order", 0),
-    )
-    db.session.add(ri)
-    db.session.commit()
+    logger.info("Ingredient '%s' added to recipe %d by user %d.", name, recipe_id, user_id)
     return ri
 
 
-def remove_ingredient_from_recipe(recipe_id: int, ingredient_id: int, user_id: int) -> bool:
+def remove_ingredient_from_recipe(recipe_id: int, ingredient_id: int, user_id: int) -> None:
     """
     Remove a specific ingredient association from a recipe by ingredient id.
-    Returns True if removed, False otherwise.
+    Raises NotFoundError if the recipe or ingredient association doesn't exist.
     """
 
-    recipe = Recipe.query.filter_by(id=recipe_id, owner_user_id=user_id).first()
-    if not recipe:
-        return False
+    recipe = _fetch_owned(recipe_id, user_id)
 
     ri = RecipeIngredient.query.filter_by(recipe_id=recipe.id, ingredient_id=ingredient_id).first()
     if not ri:
-        return False
-    db.session.delete(ri)
-    db.session.commit()
-    return True
+        logger.warning("Ingredient %d not found in recipe %d for user %d.", ingredient_id, recipe_id, user_id)
+        raise NotFoundError("Ingredient not found in recipe.")
+    with atomic():
+        db.session.delete(ri)
+    logger.info("Ingredient %d removed from recipe %d by user %d.", ingredient_id, recipe_id, user_id)

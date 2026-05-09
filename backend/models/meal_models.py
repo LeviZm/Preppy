@@ -8,20 +8,20 @@ from ..extensions import db
 #       Models for Meal Planning and Shopping List Management
 # -----------------------------------------------------------------------
 
-# TODO: Add MealPlan and ShoppingList models with appropriate relationships to User, Recipe, and PantryItem.
+# Planned: Add MealPlan and ShoppingList models with relationships to User, Recipe, and PantryItem.
 # class MealPlan(db.Model):
-    """
-    User-specific meal plan with scheduled recipes for
-    calendar integration and shopping list generation.
-    """
+#     """
+#     User-specific meal plan with scheduled recipes for
+#     calendar integration and shopping list generation.
+#     """
 
 # class ShoppingList(db.Model):
-    """
-    User-specific shopping list for generating grocery lists
-    based on meal plans and pantry inventory.
-    """
+#     """
+#     User-specific shopping list for generating grocery lists
+#     based on meal plans and pantry inventory.
+#     """
 
-class PantryItem(db.Model):
+class PantryItem(db.Model):  # type: ignore[name-defined]
     """
     User-specific pantry inventory for meal planning and shopping list generation.
     """

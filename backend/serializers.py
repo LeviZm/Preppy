@@ -7,11 +7,16 @@ included for later migration to a schema library if you prefer.
 """
 
 from decimal import Decimal
-from typing import Any, Dict
+from typing import Any, Dict, Iterable, cast
 
-from .models.recipe_models import Recipe, Ingredient, RecipeIngredient
-from .models.user_models import User, Household
-from .models.meal_models import PantryItem
+from .models import (
+    Recipe,
+    Ingredient,
+    RecipeIngredient,
+    User,
+    Household,
+    PantryItem,
+)
 
 
 def _decimal_to_str(value: Any) -> Any:
@@ -81,6 +86,7 @@ def recipe_to_dict(recipe: Recipe, include_ingredients: bool = True) -> Dict[str
     }
 
     if include_ingredients:
+        recipe_ingredients = cast(Iterable[RecipeIngredient], recipe.recipe_ingredients)
         data["ingredients"] = [
             {
                 "id": ri.id,
@@ -90,7 +96,7 @@ def recipe_to_dict(recipe: Recipe, include_ingredients: bool = True) -> Dict[str
                 "prep_note": ri.prep_note,
                 "sort_order": ri.sort_order,
             }
-            for ri in recipe.recipe_ingredients
+            for ri in recipe_ingredients
         ]
 
     return data

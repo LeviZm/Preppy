@@ -8,7 +8,7 @@ from ..extensions import db
 #                Recipe and Ingredient Models
 # ----------------------------------------------------------------------
 
-class Recipe(db.Model):
+class Recipe(db.Model):  # type: ignore[name-defined]
     """
     A recipe owned by a user and optionally shared in a household.
     """
@@ -54,7 +54,7 @@ class Recipe(db.Model):
         return f"<Recipe {self.id} {self.name}>"
 
 
-class Ingredient(db.Model):
+class Ingredient(db.Model):  # type: ignore[name-defined]
     """
     Canonical ingredient entity reused across many recipes.
     """
@@ -80,7 +80,7 @@ class Ingredient(db.Model):
         return f"<Ingredient {self.id} {self.name}>"
 
 
-class RecipeIngredient(db.Model):
+class RecipeIngredient(db.Model):  # type: ignore[name-defined]
     """
     Association object with recipe-specific amount/unit metadata.
     """
