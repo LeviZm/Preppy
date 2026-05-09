@@ -9,7 +9,9 @@ included for later migration to a schema library if you prefer.
 from decimal import Decimal
 from typing import Any, Dict
 
-from .models import Recipe, Ingredient, RecipeIngredient, User, Household, PantryItem
+from .models.recipe_models import Recipe, Ingredient, RecipeIngredient
+from .models.user_models import User, Household
+from .models.meal_models import PantryItem
 
 
 def _decimal_to_str(value: Any) -> Any:
@@ -28,6 +30,7 @@ def ingredient_to_dict(ingredient: Ingredient) -> Dict[str, Any]:
     Returns:
         Dict[str, Any]: A dictionary representing the Ingredient.
     """
+
     return {"id": ingredient.id, "name": ingredient.name}
 
 
@@ -41,6 +44,7 @@ def recipeingredient_to_dict(ri: RecipeIngredient) -> Dict[str, Any]:
     Returns:
         Dict[str, Any]: A dictionary representing the RecipeIngredient.
     """
+
     ingredient = getattr(ri, "ingredient", None)
 
     return {
@@ -59,12 +63,14 @@ def recipe_to_dict(recipe: Recipe, include_ingredients: bool = True) -> Dict[str
 
     Args:
         recipe (Recipe): The Recipe instance to convert.
-        include_ingredients (bool, optional): Whether to include associated ingredients. Defaults to True.
+        include_ingredients (bool, optional):
+            Whether to include associated ingredients. Defaults to True.
 
     Returns:
         Dict[str, Any]: A dictionary representing the Recipe.
     """
-    base = {
+
+    data = {
         "id": recipe.id,
         "name": recipe.name,
         "instructions": recipe.instructions,
@@ -75,10 +81,19 @@ def recipe_to_dict(recipe: Recipe, include_ingredients: bool = True) -> Dict[str
     }
 
     if include_ingredients:
-        ris = sorted(getattr(recipe, "recipe_ingredients", []), key=lambda x: x.sort_order or 0)
-        base["ingredients"] = [recipeingredient_to_dict(ri) for ri in ris]
+        data["ingredients"] = [
+            {
+                "id": ri.id,
+                "name": ri.ingredient.name,
+                "quantity": _decimal_to_str(ri.quantity),
+                "unit": ri.unit,
+                "prep_note": ri.prep_note,
+                "sort_order": ri.sort_order,
+            }
+            for ri in recipe.recipe_ingredients
+        ]
 
-    return base
+    return data
 
 
 def user_to_dict(user: User) -> Dict[str, Any]:
@@ -91,7 +106,7 @@ def user_to_dict(user: User) -> Dict[str, Any]:
     Returns:
         Dict[str, Any]: A dictionary representing the User.
     """
-    
+
     return {"id": user.id, "username": user.username, "email": user.email}
 
 
@@ -105,6 +120,7 @@ def household_to_dict(h: Household) -> Dict[str, Any]:
     Returns:
         Dict[str, Any]: A dictionary representing the Household.
     """
+
     return {"id": h.id, "name": h.name}
 
 
@@ -118,6 +134,7 @@ def pantryitem_to_dict(p: PantryItem) -> Dict[str, Any]:
     Returns:
         Dict[str, Any]: A dictionary representing the PantryItem.
     """
+
     ingredient = getattr(p, "ingredient", None)
 
     return {
@@ -137,6 +154,7 @@ def mealplan_to_dict(m: Any) -> Dict[str, Any]:
     The model is not implemented yet, so this returns only an id-shaped
     response to keep the serializer API predictable during development.
     """
+
     return {"id": getattr(m, "id", None)}
 
 
