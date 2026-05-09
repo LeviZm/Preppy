@@ -90,4 +90,3 @@ class HouseholdMember(db.Model):
 
     def __repr__(self) -> str:
         return f"<HouseholdMember h={self.household_id} u={self.user_id}>"
-
