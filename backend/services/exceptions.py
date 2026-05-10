@@ -48,3 +48,36 @@ class AuthError(AppError):
 
     status_code = 401
     default_message = "Invalid credentials."
+
+# -----------------------------------------------
+# AI Service Exceptions
+# -----------------------------------------------
+
+class AIServiceError(AppError):
+    """
+    The AI API returned an error or timed out.
+    Map to a HTTP 502 - the failure is upstream.
+    """
+
+    status_code = 502
+    default_message = "AI service is temporarily unavailable."
+
+class AIResponseParseError(AppError):
+    """
+    The AI response model could not be parsed as JSON.
+    The model violated the contract at the format level.
+    Map to HTTP 502.
+    """
+
+    status_code = 502
+    default_message = "AI response could not be processed."
+
+class AIResponseValidationError(AppError):
+    """
+    The AI response model could not be validated.
+    The model violated the contract at the content level.
+    Map to HTTP 502.
+    """
+
+    status_code = 502
+    default_message = "AI response format is invalid."

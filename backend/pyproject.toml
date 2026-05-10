@@ -16,8 +16,10 @@ dependencies = [
     "psycopg2-binary>=2.9.12",
     "pytest>=9.0.3",
     "python-dotenv>=1.2.2",
+    "requests>=2.31.0",
     "supabase>=2.29.0",
     "types-flask-cors>=6.0.0.20260408",
     "types-flask-migrate>=4.1.0.20260408",
     "types-psycopg2>=2.9.21.20260422",
+    "types-requests>=2.31.0.20240403",
 ]

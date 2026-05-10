@@ -3,7 +3,6 @@ Routes for recipe CRUD operations.
 """
 
 import logging
-from typing import Any
 
 from flask import Blueprint, jsonify, Response, request
 from flask_jwt_extended import get_jwt_identity, jwt_required
@@ -13,8 +12,16 @@ from ..services import (
     recipe_services as recipe_service,
     ai_services as ai_service
 )
+from ..services.recipe_service import generate_and_save_recipe
 
-from ..services.exceptions import NotFoundError, ValidationError, ConflictError
+from ..services.exceptions import (
+    NotFoundError, 
+    ValidationError, 
+    ConflictError,
+    AIServiceError,
+    AIResponseParseError,
+    AIResponseValidationError,
+)
 
 recipes_bp = Blueprint("recipes", __name__, url_prefix="/api/recipes")
 
@@ -157,24 +164,23 @@ def handle_delete_recipe(recipe_id: int) -> tuple[Response, int]:
 @recipes_bp.route("/generate", methods=["POST"])
 @jwt_required()
 def handle_generate_recipe() -> tuple[Response, int]:
-    """Generate a recipe based on user input. Placeholder implementation."""
+    """Generate a recipe based on user input using the AI pipeline."""
 
     user_id = get_jwt_identity()
-    prompt = request.get_json(silent=True).get("prompt", "")
-
-    # AI service generates a payload in the same shape as manual creation
-    logger.info("Generating recipe for user %s with prompt: %.80r", user_id, prompt)
-    payload = ai_service.generate_recipe_payload(prompt)
+    data = request.get_json(silent=True) or {}
+    prompt = data.get("prompt", "")
 
     try:
-        # Reuse the same creation logic to create a recipe from the AI-generated payload
-        recipe = recipe_service.create_recipe(
-            owner_user_id=user_id,
-            name=payload.get("name", "AI Generated Recipe"),
-            instructions=payload.get("instructions", ""),
-            ingredients=payload.get("ingredients", []),
+        recipe = generate_and_save_recipe(
+            user_id=user_id, prompt=prompt
         )
         return jsonify(recipe_to_dict(recipe)), 201
-    except (ValidationError, ConflictError) as e:
-        logger.warning("POST generate recipe failed for user %s: %s", user_id, e)
+    except ValidationError as e:
+        logger.warning("POST generate recipe failed for user %d: %s", user_id, e)
         return jsonify({"error": str(e)}), 400
+    except ConflictError as e:
+        logger.warning("POST generate recipe conflict for user %d: %s", user_id, e)
+        return jsonify({"error": str(e)}), 409
+    except (AIServiceError, AIResponseParseError, AIResponseValidationError) as e:
+        logger.warning("POST generate recipe AI error for user %d: %s", user_id, e)
+        return jsonify({"error": str(e)}), 502
