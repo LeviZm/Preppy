@@ -3,13 +3,12 @@ Flask Backend for the Preppy app.
 """
 
 import logging
-import os
 
 from dotenv import load_dotenv
 from flask import Flask, jsonify, request
-
 from .extensions import db, cors, migrate, jwt
 from .settings import Config
+from .services.exceptions import AppError
 
 logger = logging.getLogger(__name__)
 
@@ -35,8 +34,7 @@ def create_app():
     cors.init_app(flask_app)
     migrate.init_app(flask_app, db)
 
-    # JWT config - keep secret in env for production
-    flask_app.config.setdefault("JWT_SECRET_KEY", os.getenv("JWT_SECRET_KEY", "change-me"))
+    # Initialize JWT (config loaded from Config class)
     jwt.init_app(flask_app)
 
     # register blueprints here to avoid circular imports at module import time
@@ -133,6 +131,36 @@ def create_app():
         """
         logger.exception("500 Internal Server Error: %s", e)
         return jsonify({"error": "Internal Server Error"}), 500
+
+    @flask_app.errorhandler(AppError)
+    def handle_app_error(e):
+        """Handle all custom application exceptions."""
+        logger.warning("AppError: %s (status=%d)", e.message, e.status_code)
+        return jsonify({"error": e.message}), e.status_code
+
+    # JWT error handlers for consistent JSON responses
+    @jwt.unauthorized_loader
+    def missing_token_callback(error_string):
+        """Called when a protected route receives no token."""
+        return jsonify({"error": "Authentication required."}), 401
+
+
+    @jwt.invalid_token_loader
+    def invalid_token_callback(error_string):
+        """Called when a token is present but malformed or fails signature check."""
+        return jsonify({"error": "Token is invalid."}), 401
+
+
+    @jwt.expired_token_loader
+    def expired_token_callback(jwt_header, jwt_payload):
+        """Called when a valid token has passed its expiration time."""
+        return jsonify({"error": "Token has expired. Please log in again."}), 401
+
+    @flask_app.errorhandler(Exception)
+    def handle_generic_exception(e):
+        """Catch-all for debugging test failures."""
+        logger.exception("Unhandled exception: %s", e)
+        return jsonify({"error": "Internal Server Error", "detail": str(e)}), 500
 
     return flask_app
 
