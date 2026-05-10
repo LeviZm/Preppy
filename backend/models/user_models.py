@@ -35,6 +35,18 @@ class User(db.Model):  # type: ignore[name-defined]
         cascade="all, delete-orphan",
     )
 
+    meal_plans = db.relationship(
+        "MealPlan",
+        back_populates="user",
+        cascade="all, delete-orphan",
+    )
+
+    shopping_lists = db.relationship(
+        "ShoppingList",
+        back_populates="user",
+        cascade="all, delete-orphan",
+    )
+
     def __repr__(self) -> str:
         return f"<User id={self.id} username={self.username}>"
 

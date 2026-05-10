@@ -50,6 +50,12 @@ class Recipe(db.Model):  # type: ignore[name-defined]
         cascade="all, delete-orphan",
     )
 
+    meal_plans = db.relationship(
+        "MealPlan",
+        back_populates="recipe",
+        cascade="all, delete-orphan",
+    )
+
     def __repr__(self) -> str:
         return f"<Recipe {self.id} {self.name}>"
 
@@ -73,6 +79,11 @@ class Ingredient(db.Model):  # type: ignore[name-defined]
 
     pantry_items = db.relationship(
         "PantryItem",
+        back_populates="ingredient",
+    )
+
+    shopping_list_items = db.relationship(
+        "ShoppingListItem",
         back_populates="ingredient",
     )
 
