@@ -17,6 +17,12 @@ __pycache__/
 .env
 .dev.vars
 
+# Local database files (SQLite - never commit)
+instance/
+*.db
+*.sqlite
+*.sqlite3
+
 # Private AI Instructions
 .github/copilot-instructions.md
 FolderStructure.md
