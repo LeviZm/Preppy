@@ -15,7 +15,11 @@ from .models import (
     RecipeIngredient,
     User,
     Household,
+    HouseholdMember,
     PantryItem,
+    MealPlan,
+    ShoppingList,
+    ShoppingListItem,
 )
 
 
@@ -116,6 +120,15 @@ def user_to_dict(user: User) -> Dict[str, Any]:
     return {"id": user.id, "username": user.username, "email": user.email}
 
 
+def household_member_to_dict(m: HouseholdMember) -> Dict[str, Any]:
+    return {
+        "id": m.id,
+        "user": user_to_dict(m.user),
+        "role": m.role,
+        "joined_at": m.joined_at.isoformat() if m.joined_at else None,
+    }
+
+
 def household_to_dict(h: Household) -> Dict[str, Any]:
     """
     Convert a Household instance to a dictionary.
@@ -153,23 +166,72 @@ def pantryitem_to_dict(p: PantryItem) -> Dict[str, Any]:
     }
 
 
-def mealplan_to_dict(m: Any) -> Dict[str, Any]:
+def mealplan_to_dict(m: MealPlan) -> Dict[str, Any]:
     """
-    Placeholder serializer for a future model.
+    Convert a MealPlan instance to a dictionary.
 
-    The model is not implemented yet, so this returns only an id-shaped
-    response to keep the serializer API predictable during development.
-    """
+    Args:
+        m (MealPlan): The MealPlan instance to convert.
 
-    return {"id": getattr(m, "id", None)}
-
-
-def shoppinglist_to_dict(s: Any) -> Dict[str, Any]:
-    """
-    Placeholder serializer for a future model.
-
-    The model is not implemented yet, so this returns only an id-shaped
-    response to keep the serializer API predictable during development.
+    Returns:
+        Dict[str, Any]: A dictionary representing the MealPlan.
     """
 
-    return {"id": getattr(s, "id", None)}
+    return {
+        "id": m.id,
+        "user_id": m.user_id,
+        "recipe_id": m.recipe_id,
+        "planned_date": m.planned_date.isoformat() if m.planned_date is not None else None,
+        "meal_type": m.meal_type,
+        "servings": m.servings,
+        "notes": m.notes,
+        "created_at": m.created_at.isoformat() if m.created_at is not None else None,
+    }
+
+
+def shoppinglistitem_to_dict(item: ShoppingListItem) -> Dict[str, Any]:
+    """
+    Convert a ShoppingListItem instance to a dictionary.
+
+    Args:
+        item (ShoppingListItem): The ShoppingListItem instance to convert.
+
+    Returns:
+        Dict[str, Any]: A dictionary representing the ShoppingListItem.
+    """
+
+    ingredient = getattr(item, "ingredient", None)
+
+    return {
+        "id": item.id,
+        "shopping_list_id": item.shopping_list_id,
+        "ingredient_id": item.ingredient_id,
+        "ingredient_name": ingredient.name if ingredient is not None else None,
+        "quantity": _decimal_to_str(item.quantity),
+        "unit": item.unit,
+        "is_checked": item.is_checked,
+        "sort_order": item.sort_order,
+    }
+
+
+def shoppinglist_to_dict(s: ShoppingList) -> Dict[str, Any]:
+    """
+    Convert a ShoppingList instance to a dictionary.
+
+    Args:
+        s (ShoppingList): The ShoppingList instance to convert.
+
+    Returns:
+        Dict[str, Any]: A dictionary representing the ShoppingList.
+    """
+
+    return {
+        "id": s.id,
+        "user_id": s.user_id,
+        "meal_plan_id": s.meal_plan_id,
+        "name": s.name,
+        "is_complete": s.is_complete,
+        "created_at": s.created_at.isoformat() if s.created_at is not None else None,
+        "updated_at": s.updated_at.isoformat() if s.updated_at is not None else None,
+        "items": [shoppinglistitem_to_dict(i) for i in (s.items or [])],
+    }
