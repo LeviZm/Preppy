@@ -1,4 +1,4 @@
-"""Authentication service placeholders"""
+"""Authentication service"""
 
 from typing import Dict, Any
 
@@ -68,6 +68,9 @@ def authenticate_user(email: str, password: str) -> str:
     """
 
     email = email.strip().lower()
+    
+    if not email or not password:
+        raise ValidationError("Email and password are required.")
     user = User.query.filter_by(email=email).first()
 
     # Check password even if user is None, to prevent timing attacks
