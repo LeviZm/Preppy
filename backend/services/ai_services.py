@@ -30,15 +30,15 @@ logger = logging.getLogger(__name__)
 
 load_dotenv()
 
-api_key = os.getenv("GEMINI_API_KEY")
+api_key = os.getenv("GOOGLE_API_KEY")
 
 if not api_key:
-    raise ValueError("GEMINI_API_KEY is required")
+    raise ValueError("GOOGLE_API_KEY is required")
 
 client = genai.Client(api_key=api_key)
 
-MODEL_NAME = "models/gemini-2.0-flash"
-MODEL_NAME_VISION = "models/gemini-2.0-flash"
+MODEL_NAME = "models/gemini-2.5-flash-lite"
+MODEL_NAME_VISION = "models/gemini-2.5-flash-lite"
 
 # -----------------------------------------------------------------------
 # Shared JSON utilities
