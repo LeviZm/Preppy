@@ -9,10 +9,8 @@ from flask_jwt_extended import get_jwt_identity, jwt_required
 
 from ..serializers import recipe_to_dict
 from ..services import (
-    recipe_services as recipe_service,
-    ai_services as ai_service
+    recipe_services as recipe_service
 )
-from ..services.recipe_service import generate_and_save_recipe
 
 from ..services.exceptions import (
     NotFoundError, 
@@ -69,10 +67,12 @@ def handle_create_recipe() -> tuple[Response, int]:
 
     try:
         new_recipe = recipe_service.create_recipe(
-            owner_user_id=user_id,
-            name=str(data.get("name") or ""),
-            instructions=str(data.get("instructions") or ""),
-            ingredients=data.get("ingredients", []),
+            user_id=user_id,
+            payload={
+                "name": str(data.get("name") or ""),
+                "instructions": str(data.get("instructions") or ""),
+                "ingredients": data.get("ingredients", [])
+            }
         )
     except (ValidationError, ConflictError) as e:
         logger.warning("POST create recipe failed for user %d: %s", user_id, e)
@@ -166,21 +166,45 @@ def handle_delete_recipe(recipe_id: int) -> tuple[Response, int]:
 def handle_generate_recipe() -> tuple[Response, int]:
     """Generate a recipe based on user input using the AI pipeline."""
 
-    user_id = get_jwt_identity()
+    user_id = int(get_jwt_identity())
     data = request.get_json(silent=True) or {}
     prompt = data.get("prompt", "")
+    
+    logger.info("POST /api/recipes/generate request from user %d", user_id, extra={"user_id": user_id})
 
     try:
-        recipe = generate_and_save_recipe(
+        recipe = recipe_service.generate_and_save_recipe(
             user_id=user_id, prompt=prompt
         )
         return jsonify(recipe_to_dict(recipe)), 201
+
     except ValidationError as e:
-        logger.warning("POST generate recipe failed for user %d: %s", user_id, e)
+        # User error - return their own message back to them
         return jsonify({"error": str(e)}), 400
+
     except ConflictError as e:
-        logger.warning("POST generate recipe conflict for user %d: %s", user_id, e)
+        # User error - tell them the name is taken
         return jsonify({"error": str(e)}), 409
-    except (AIServiceError, AIResponseParseError, AIResponseValidationError) as e:
-        logger.warning("POST generate recipe AI error for user %d: %s", user_id, e)
-        return jsonify({"error": str(e)}), 502
+
+    except AIServiceError:
+        # Upstream error - generic message, do not expose API details
+        return jsonify({
+            "error": "The recipe generator is temporarily unavailable. Please try again."
+        }), 502
+
+    except (AIResponseParseError, AIResponseValidationError):
+        # Application error - already logged in service, generic message
+        return jsonify({
+            "error": "The recipe generator returned an unexpected response. Please try again."
+        }), 502
+
+    except Exception:
+        # Uncaught application error - log here as last resort
+        logger.error(
+            "Unhandled exception in generate_recipe route.",
+            extra={"user_id": user_id},
+            exc_info=True,
+        )
+        return jsonify({
+            "error": "An unexpected error occurred. Please try again."
+        }), 500

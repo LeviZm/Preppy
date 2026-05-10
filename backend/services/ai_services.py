@@ -10,9 +10,10 @@ Each step has specific error handling and exception types.
 """
 
 import json
+import logging
 import os
 from dotenv import load_dotenv
-import google.generativeai as genai
+from google import genai
 
 from .exceptions import (
     AIServiceError,
@@ -20,14 +21,16 @@ from .exceptions import (
     AIResponseValidationError,
 )
 
+logger = logging.getLogger(__name__)
+
 load_dotenv()
 
-api_key = os.getenv("GOOGLE_API_KEY")
+api_key = os.getenv("GEMINI_API_KEY")
 
 if not api_key:
-    raise ValueError("GOOGLE_API_KEY is required")
+    raise ValueError("GEMINI_API_KEY is required")
 
-genai.configure(api_key=api_key)
+client = genai.Client(api_key=api_key)
 
 _SYSTEM_PROMPT = """
 You are a recipe generation engine for a meal planning application.
@@ -63,64 +66,175 @@ RULES
 - Never return an empty object {}.
 """
 
-# The model is instantiated once at module load
-recipe_model = genai.GenerativeModel(
-    model_name="gemini-3.0-flash",
-    system_instruction=_SYSTEM_PROMPT
-)
+# Model configuration
+MODEL_NAME = "models/gemini-3.1-flash-lite"
 
-def _parse_response(raw: str) -> dict:
+def _extract_json_substring(text: str) -> str | None:
     """
-    Parse the model's raw string response into a validated dict.
+    Attempt to extract a JSON object substring from surrounding text.
+    Returns None if no valid substring is found.
+    """
+    start = text.find("{")
+    end = text.rfind("}")
+
+    if start == -1 or end == -1 or end < start:
+        return None
+
+    return text[start : end + 1]
+
+
+def _validate_recipe_payload(data: dict) -> None:
+    """
+    Validate that a parsed JSON object matches Preppy's recipe schema.
+
+    Validates top-level fields and each ingredient entry. All required
+    fields are checked for presence, correct type, and non-emptiness.
+    Optional fields are checked for correct type only when present.
 
     Raises:
-        AIResponseParseError: if the response is not valid JSON.
-        AIResponseValidationError: if the JSON does not match the required schema.
+        AIResponseValidationError: if any field fails validation.
     """
-    # --- Step 1: Parse JSON ---
-    try:
-        data = json.loads(raw)
-    except json.JSONDecodeError as e:
-        raise AIResponseParseError(
-            f"Model returned non-JSON output: {e}"
-        ) from e
+    # --- Check the model-reported error escape hatch first ---
+    if not isinstance(data, dict):
+        raise AIResponseValidationError(
+            f"Expected a JSON object, got {type(data).__name__}."
+        )
 
-    # --- Step 2: Check for model-reported error ---
     if "error" in data:
         raise AIResponseValidationError(
-            f"Model could not generate a recipe: {data['error']}"
+            f"Model reported it could not generate a recipe: {data['error']}"
         )
 
-    # --- Step 3: Validate required top-level fields ---
+    # --- Validate: name ---
     name = data.get("name")
-    if not isinstance(name, str) or not name.strip():
+    if not isinstance(name, str):
         raise AIResponseValidationError(
-            "Model response missing required field: 'name'."
+            f"Field 'name' must be a string, got {type(name).__name__}."
+        )
+    if not name.strip():
+        raise AIResponseValidationError(
+            "Field 'name' must be a non-empty string."
         )
 
+    # --- Validate: instructions ---
     instructions = data.get("instructions")
     if not isinstance(instructions, str):
         raise AIResponseValidationError(
-            "Model response missing required field: 'instructions'."
+            f"Field 'instructions' must be a string, got {type(instructions).__name__}."
+        )
+    if not instructions.strip():
+        raise AIResponseValidationError(
+            "Field 'instructions' must be a non-empty string."
         )
 
+    # --- Validate: ingredients ---
     ingredients = data.get("ingredients")
     if not isinstance(ingredients, list):
         raise AIResponseValidationError(
-            "Model response field 'ingredients' must be a list."
+            f"Field 'ingredients' must be a list, got {type(ingredients).__name__}."
+        )
+    if len(ingredients) == 0:
+        raise AIResponseValidationError(
+            "Field 'ingredients' must not be empty."
         )
 
-    # --- Step 4: Validate each ingredient entry ---
+    # --- Validate: each ingredient entry ---
     for i, item in enumerate(ingredients):
-        if not isinstance(item, dict):
-            raise AIResponseValidationError(
-                f"Ingredient at index {i} is not an object."
-            )
-        ingredient_name = item.get("name")
-        if not isinstance(ingredient_name, str) or not ingredient_name.strip():
-            raise AIResponseValidationError(
-                f"Ingredient at index {i} is missing a valid 'name'."
-            )
+        _validate_ingredient_entry(item, index=i)
+
+
+def _validate_ingredient_entry(item: object, index: int) -> None:
+    """
+    Validate a single ingredient entry from the model's response.
+
+    Raises:
+        AIResponseValidationError: if the entry fails validation.
+    """
+    if not isinstance(item, dict):
+        raise AIResponseValidationError(
+            f"Ingredient at index {index} must be an object, "
+            f"got {type(item).__name__}."
+        )
+
+    # Required: name
+    name = item.get("name")
+    if not isinstance(name, str):
+        raise AIResponseValidationError(
+            f"Ingredient at index {index}: 'name' must be a string, "
+            f"got {type(name).__name__}."
+        )
+    if not name.strip():
+        raise AIResponseValidationError(
+            f"Ingredient at index {index}: 'name' must be non-empty."
+        )
+
+    # Required: unit (may be null, but must be present)
+    if "unit" not in item:
+        raise AIResponseValidationError(
+            f"Ingredient at index {index}: missing required key 'unit'."
+        )
+    unit = item["unit"]
+    if unit is not None and not isinstance(unit, str):
+        raise AIResponseValidationError(
+            f"Ingredient at index {index}: 'unit' must be a string or null, "
+            f"got {type(unit).__name__}."
+        )
+
+    # Optional: quantity — must be string or null if present
+    quantity = item.get("quantity")
+    if quantity is not None and not isinstance(quantity, str):
+        raise AIResponseValidationError(
+            f"Ingredient at index {index}: 'quantity' must be a string or null, "
+            f"got {type(quantity).__name__}."
+        )
+
+    # Optional: prep_note — must be string or null if present
+    prep_note = item.get("prep_note")
+    if prep_note is not None and not isinstance(prep_note, str):
+        raise AIResponseValidationError(
+            f"Ingredient at index {index}: 'prep_note' must be a string or null, "
+            f"got {type(prep_note).__name__}."
+        )
+
+
+def _parse_response(raw: str) -> dict:
+    """
+    Parse the model's raw string output into a validated recipe dict.
+
+    Attempts direct JSON parsing first. If that fails, attempts to
+    extract a JSON substring from surrounding text before giving up.
+
+    Raises:
+        AIResponseParseError: if the response cannot be parsed as JSON.
+        AIResponseValidationError: if the JSON fails schema validation.
+    """
+    # --- Stage 1: Parse ---
+    data = None
+
+    try:
+        data = json.loads(raw)
+    except json.JSONDecodeError:
+        logger.warning("Direct JSON parse failed. Attempting substring extraction.")
+        substring = _extract_json_substring(raw)
+
+        if substring is not None:
+            try:
+                data = json.loads(substring)
+                logger.warning(
+                    "JSON recovered via substring extraction. "
+                    "Review system prompt to prevent this."
+                )
+            except json.JSONDecodeError:
+                pass  # Fall through to raise below
+
+    if data is None:
+        raise AIResponseParseError(
+            "Model response could not be parsed as JSON. "
+            f"Response began with: {raw[:120]!r}"
+        )
+
+    # --- Stage 2: Validate structure ---
+    _validate_recipe_payload(data)
 
     return data
 
@@ -138,12 +252,38 @@ def generate_recipe_payload(user_prompt: str) -> dict:
         AIResponseParseError: if the response is not valid JSON.
         AIResponseValidationError: if the JSON does not match the schema.
     """
+    logger.debug(
+        "AI recipe generation started.",
+        extra={"prompt_preview": user_prompt[:100]}
+    )
+    
     # --- Step 3: Call the model ---
     try:
-        response = recipe_model.generate_content(user_prompt)
+        response = client.models.generate_content(
+            model=MODEL_NAME,
+            contents=[
+                {
+                    "role": "user",
+                    "parts": [{"text": _SYSTEM_PROMPT}],
+                },
+                {
+                    "role": "user",
+                    "parts": [{"text": user_prompt}],
+                },
+            ],
+        )
         raw = response.text
+        logger.debug(
+            "AI raw response received.",
+            extra={"response_preview": raw[:200]}
+        )
     except Exception as e:
-        raise AIServiceError(f"AI API error: {e}") from e
+        logger.warning(
+            "AI API call failed.",
+            extra={"prompt_preview": user_prompt[:100]},
+            exc_info=True,
+        )
+        raise AIServiceError("AI request timed out.") from e
 
     # --- Steps 4 and 5: Parse and validate ---
     return _parse_response(raw)

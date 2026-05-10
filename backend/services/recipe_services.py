@@ -12,9 +12,10 @@ from sqlalchemy.orm.attributes import QueryableAttribute
 
 from ..extensions import db
 from ..models import Recipe, RecipeIngredient
-from .exceptions import NotFoundError, ValidationError
+from .exceptions import NotFoundError, ValidationError, ConflictError, AIServiceError, AIResponseParseError, AIResponseValidationError
 from .ingredients_services import get_or_create_ingredient
 from .transaction import atomic
+from . import ai_services as ai_service
 
 logger = logging.getLogger(__name__)
 
@@ -118,47 +119,118 @@ def _sync_recipe_ingredients(recipe: Recipe, ingredients: List[Dict]) -> None:
         if ri.ingredient.name not in incoming_names:
             db.session.delete(ri)
 
-def create_recipe(
-    owner_user_id: int,
-    name: str,
-    instructions: str,
-    ingredients: List[Dict]
-) -> Recipe:
+
+def create_recipe(user_id: int, payload: Dict[str, Any]) -> Recipe:
     """
-    Create a recipe and its recipe-ingredient rows.
+    Create a new recipe from validated payload.
 
-    Ingredients is a list of dicts:
-    {"name": str, "quantity": Decimal|str, "unit": str, "prep_note": str (opt)}
+    Args:
+        user_id: ID of the user creating the recipe
+        payload: Validated recipe data with name, instructions, ingredients
+
+    Returns:
+        Created Recipe object
+
+    Raises:
+        ValidationError: if payload is invalid
+        ConflictError: if user already has a recipe with this name
     """
-
-    resolved = [
-        (item, get_or_create_ingredient(item["name"]))
-        for item in ingredients
-        if item.get("name")
-    ]
-
-    with atomic("A recipe with this name already exists."):
-        recipe = Recipe(owner_user_id=owner_user_id, name=name, instructions=instructions)
-        db.session.add(recipe)
-        db.session.flush()  # ensure recipe.id is available
-
-        for idx, (item, ing) in enumerate(resolved):
-            ri = RecipeIngredient(
-                recipe_id=recipe.id,
-                ingredient_id=ing.id,
-                quantity=_parse_quantity(item.get("quantity", 0)),
-                unit=item.get("unit", "unit"),
-                prep_note=item.get("prep_note"),
-                sort_order=idx,
-            )
-            db.session.add(ri)
-            
-    logger.info(
-        "Recipe %d '%s' created for user %d with %d ingredients.",
-        recipe.id, recipe.name, recipe.owner_user_id, len(resolved)
+    name = payload.get("name", "").strip()
+    logger.debug("Creating recipe '%s' for user %d", name, user_id, extra={"user_id": user_id})
+    
+    if not name:
+        raise ValidationError("Recipe name is required.")
+    
+    # Check for existing recipe with same name for this user
+    existing = Recipe.query.filter_by(owner_user_id=user_id, name=name).first()
+    if existing:
+        raise ConflictError("You already have a recipe with this name.")
+    
+    # Create recipe
+    recipe = Recipe(
+        name=name,
+        instructions=payload.get("instructions", "").strip(),
+        owner_user_id=user_id
     )
+    db.session.add(recipe)
+    db.session.flush()  # Get the recipe ID
+    
+    # Create recipe ingredients
+    for sort_order, ingredient_data in enumerate(payload.get("ingredients", [])):
+        ingredient = get_or_create_ingredient(ingredient_data["name"])
+        
+        # Handle optional fields with defaults
+        quantity = ingredient_data.get("quantity")
+        if quantity is not None:
+            try:
+                quantity = float(quantity)
+            except (ValueError, TypeError):
+                quantity = 1.0
+        else:
+            quantity = 1.0
+            
+        unit = ingredient_data.get("unit", "").strip() or "unit"
+        prep_note = ingredient_data.get("prep_note")
+        
+        recipe_ingredient = RecipeIngredient(
+            recipe_id=recipe.id,
+            ingredient_id=ingredient.id,
+            quantity=float(quantity),
+            unit=unit,
+            prep_note=prep_note.strip() if prep_note else None,
+            sort_order=sort_order
+        )
+        db.session.add(recipe_ingredient)
 
+    db.session.commit()
+    logger.info("Recipe created and saved.", extra={"user_id": user_id, "recipe_id": recipe.id})
     return recipe
+
+
+def generate_and_save_recipe(user_id: int, prompt: str) -> Recipe:
+    """
+    Generate a recipe from a user prompt and save it to the database.
+
+    Validates the prompt, calls the AI service, and delegates persistence
+    to create_recipe() — the same function used by the manual creation flow.
+
+    Raises:
+        ValidationError: if the prompt is empty.
+        AIServiceError: if the AI API fails or times out.
+        AIResponseParseError: if the AI response is not valid JSON.
+        AIResponseValidationError: if the AI response fails schema validation.
+        ConflictError: if the user already has a recipe with the generated name.
+    """
+    # --- Step 2: Validate the prompt ---
+    if not prompt or not isinstance(prompt, str) or not prompt.strip():
+        logger.debug("AI recipe generation failed: empty prompt for user %d", user_id, extra={"user_id": user_id})
+        raise ValidationError("Prompt must not be empty.")
+
+    # --- Steps 3–5: Generate and validate the payload ---
+    try:
+        payload = ai_service.generate_recipe_payload(prompt)
+    except AIServiceError as e:
+        # Upstream error - already logged in ai_service
+        raise
+    except AIResponseParseError as e:
+        logger.error(
+            "AI response failed JSON parsing.",
+            extra={"user_id": user_id},
+            exc_info=True,
+        )
+        raise
+    except AIResponseValidationError as e:
+        logger.error(
+            "AI response failed schema validation.",
+            extra={"user_id": user_id, "validation_error": str(e)},
+            exc_info=True,
+        )
+        raise
+
+    # --- Steps 6–7: Save and return ---
+    recipe = create_recipe(user_id=user_id, payload=payload)
+    return recipe
+
 
 # ---------------------------------------------------------
 # Get Recipes
