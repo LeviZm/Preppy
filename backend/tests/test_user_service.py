@@ -15,7 +15,7 @@ def test_register_requires_password(app_context):
 def test_register_enforces_minimum_length(app_context):
     """Test registering a user with a password that is too short."""
 
-    with pytest.raises(ValidationError, match="at least 8 characters"):
+    with pytest.raises(ValidationError, match="at least 10 characters"):
         auth_service.register_user(
             {
             "username": "ada",

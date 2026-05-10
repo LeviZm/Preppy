@@ -11,6 +11,12 @@ Provides:
 
 # pylint: disable=redefined-outer-name
 
+import os
+
+# Set test environment BEFORE any imports (load_dotenv runs at module level)
+os.environ["DATABASE_URL"] = "sqlite:///:memory:"
+os.environ["SECRET_KEY"] = "test-secret-key"
+
 import pytest
 from werkzeug.security import generate_password_hash
 
@@ -29,7 +35,6 @@ def app_context():
     app = create_app()
     app.config.update(
         TESTING=True,
-        SQLALCHEMY_DATABASE_URI="sqlite:///:memory:",
         JWT_SECRET_KEY="test-secret-key",
     )
 
@@ -38,6 +43,38 @@ def app_context():
         yield app
         _db.session.remove()
         _db.drop_all()
+
+
+@pytest.fixture(scope="function")
+def client(app_context):
+    """Flask test client for making HTTP requests."""
+    return app_context.test_client()
+
+
+def create_test_user(username: str, email: str, password: str = "ValidPassword1"):
+    """Helper to create a test user in the database."""
+    from ..models import User
+    user = User(
+        username=username,
+        email=email,
+        password_hash=generate_password_hash(password),
+    )
+    _db.session.add(user)
+    _db.session.commit()
+    return user
+
+
+def create_test_recipe(owner, name: str, instructions: str = ""):
+    """Helper to create a test recipe in the database."""
+    from ..models import Recipe
+    recipe = Recipe(
+        name=name,
+        instructions=instructions,
+        owner_user_id=owner.id,
+    )
+    _db.session.add(recipe)
+    _db.session.commit()
+    return recipe
 
 
 @pytest.fixture(scope="function")
@@ -62,3 +99,28 @@ def existing_user(app_context):
     _db.session.add(user)
     _db.session.commit()
     return user
+
+
+# Textbook fixtures for ownership testing
+@pytest.fixture(scope="function")
+def user_a(app_context):
+    """Alice - first test user for ownership tests."""
+    _ = app_context
+    user = create_test_user("alice", "alice@test.com")
+    return user
+
+
+@pytest.fixture(scope="function")
+def user_b(app_context):
+    """Bob - second test user for ownership tests."""
+    _ = app_context
+    user = create_test_user("bob", "bob@test.com")
+    return user
+
+
+@pytest.fixture(scope="function")
+def recipe_owned_by_a(app_context, user_a):
+    """A recipe created by user_a (Alice) for ownership tests."""
+    _ = app_context
+    recipe = create_test_recipe(user_a, "Alice's Secret Recipe")
+    return recipe

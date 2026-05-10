@@ -1,8 +1,9 @@
 """Tests for recipe ownership and access control."""
 
 import pytest
-from backend.services import recipe_services as recipe_service
-from backend.services.exceptions import NotFoundError
+from ..services import recipe_services as recipe_service
+from ..services.exceptions import NotFoundError
+from ..tests.conftest import create_test_user, create_test_recipe
 
 def test_user_cannot_read_another_users_recipe(app_context, db_session):
     """
@@ -14,6 +15,7 @@ def test_user_cannot_read_another_users_recipe(app_context, db_session):
     alice = create_test_user(username="alice", email="alice@test.com")
     bob = create_test_user(username="bob", email="bob@test.com")
     alices_recipe = create_test_recipe(owner=alice, name="Alice's Soup")
+    _ = db_session  # use fixture to ensure cleanup
 
     # Act & Assert — Bob cannot read Alice's recipe
     with pytest.raises(NotFoundError):
@@ -30,6 +32,7 @@ def test_user_cannot_update_another_users_recipe(app_context, db_session):
     alice = create_test_user(username="alice", email="alice@test.com")
     bob = create_test_user(username="bob", email="bob@test.com")
     alices_recipe = create_test_recipe(owner=alice, name="Alice's Soup")
+    _ = db_session
 
     with pytest.raises(NotFoundError):
         recipe_service.update_recipe(
@@ -50,6 +53,7 @@ def test_user_cannot_delete_another_users_recipe(app_context, db_session):
     alice = create_test_user(username="alice", email="alice@test.com")
     bob = create_test_user(username="bob", email="bob@test.com")
     alices_recipe = create_test_recipe(owner=alice, name="Alice's Soup")
+    _ = db_session
 
     with pytest.raises(NotFoundError):
         recipe_service.delete_recipe(
@@ -72,6 +76,7 @@ def test_users_can_share_recipe_names(app_context, db_session):
     """
     alice = create_test_user(username="alice", email="alice@test.com")
     bob = create_test_user(username="bob", email="bob@test.com")
+    _ = db_session
 
     recipe_service.create_recipe(
         owner_user_id=alice.id, name="Pasta", instructions="", ingredients=[]
