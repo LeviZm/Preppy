@@ -79,9 +79,9 @@ def test_users_can_share_recipe_names(app_context, db_session):
     _ = db_session
 
     recipe_service.create_recipe(
-        owner_user_id=alice.id, name="Pasta", instructions="", ingredients=[]
+        user_id=alice.id, payload={"name": "Pasta", "instructions": "", "ingredients": []}
     )
     # This must not raise ConflictError
     recipe_service.create_recipe(
-        owner_user_id=bob.id, name="Pasta", instructions="", ingredients=[]
+        user_id=bob.id, payload={"name": "Pasta", "instructions": "", "ingredients": []}
     )

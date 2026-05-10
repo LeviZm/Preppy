@@ -7,6 +7,8 @@ Provides:
   - db_session:  the SQLAlchemy session active inside app_context.
   - existing_user: a pre-registered User with a known hashed password,
                    used by auth service tests.
+  - valid_ai_payload: known-good AI response payload for testing.
+  - valid_ai_response: JSON string of valid_ai_payload.
 """
 
 # pylint: disable=redefined-outer-name
@@ -15,7 +17,8 @@ import os
 
 # Set test environment BEFORE any imports (load_dotenv runs at module level)
 os.environ["DATABASE_URL"] = "sqlite:///:memory:"
-os.environ["SECRET_KEY"] = "test-secret-key"
+os.environ["SECRET_KEY"] = "test-secret-key-32-bytes-long-for-security"
+os.environ["JWT_SECRET_KEY"] = "test-secret-key-32-bytes-long-for-security"
 
 import pytest
 from werkzeug.security import generate_password_hash
@@ -35,7 +38,6 @@ def app_context():
     app = create_app()
     app.config.update(
         TESTING=True,
-        JWT_SECRET_KEY="test-secret-key",
     )
 
     with app.app_context():
@@ -124,3 +126,44 @@ def recipe_owned_by_a(app_context, user_a):
     _ = app_context
     recipe = create_test_recipe(user_a, "Alice's Secret Recipe")
     return recipe
+
+
+# AI testing fixtures following Module 3.7 strategy
+@pytest.fixture
+def valid_ai_payload():
+    """
+    A known-good AI response payload.
+    Use this as the baseline for all parser and validator tests.
+    Modify exactly one field per test to isolate the behavior under test.
+    """
+    return {
+        "name": "Chicken Parmesan",
+        "instructions": "Bread the chicken. Fry until golden. Top with sauce and cheese. Bake at 375F for 20 minutes.",
+        "ingredients": [
+            {
+                "name": "chicken breast",
+                "quantity": "2",
+                "unit": "lbs",
+                "prep_note": "pounded thin",
+            },
+            {
+                "name": "marinara sauce",
+                "quantity": "1",
+                "unit": "cup",
+                "prep_note": None,
+            },
+            {
+                "name": "mozzarella",
+                "quantity": "4",
+                "unit": "oz",
+                "prep_note": "shredded",
+            },
+        ],
+    }
+
+
+@pytest.fixture
+def valid_ai_response(valid_ai_payload):
+    """The same payload serialized to a JSON string, as the model would return it."""
+    import json
+    return json.dumps(valid_ai_payload)
