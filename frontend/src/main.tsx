@@ -1,20 +1,13 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 import { AuthProvider } from "./context/AuthContext";
-import { LoginForm } from "./components/LoginForm";
+import { App } from "./App";
 import "./style.css";
 
-// Create the root element for React to render into
-const root = ReactDOM.createRoot(document.getElementById("root")!);
-
-// Render the app wrapped with AuthProvider
-root.render(
+ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <AuthProvider>
-      <div className="app">
-        <h1>Preppy</h1>
-        <LoginForm />
-      </div>
+      <App />
     </AuthProvider>
   </React.StrictMode>
 );

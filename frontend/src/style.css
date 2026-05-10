@@ -1,0 +1,41 @@
+@import url("https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Source+Sans+3:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap");
+
+@import "tailwindcss";
+
+@theme {
+  --color-sage-50: #f4f7f4;
+  --color-sage-100: #e6ede6;
+  --color-sage-200: #cddccd;
+  --color-sage-300: #a9c2a9;
+  --color-sage-400: #7ea17e;
+  --color-sage-500: #5c845c;
+  --color-sage-600: #486848;
+  --color-sage-700: #3a543a;
+  --color-sage-800: #2f432f;
+  --color-sage-900: #273827;
+
+  --color-clay-400: #d4846a;
+  --color-clay-500: #c26b50;
+  --color-clay-600: #a8553c;
+
+  --color-stone-50: #fafaf9;
+  --color-stone-100: #f5f5f4;
+  --color-stone-200: #e7e5e4;
+  --color-stone-300: #d6d3d1;
+  --color-stone-400: #a8a29e;
+  --color-stone-500: #78716c;
+  --color-stone-600: #57534e;
+  --color-stone-700: #44403c;
+  --color-stone-800: #292524;
+  --color-stone-900: #1c1917;
+
+  --font-family-display: "Playfair Display", Georgia, serif;
+  --font-family-body: "Source Sans 3", sans-serif;
+  --font-family-mono: "JetBrains Mono", monospace;
+}
+
+body {
+  font-family: var(--font-family-body);
+  background-color: var(--color-stone-50);
+  color: var(--color-stone-800);
+}
