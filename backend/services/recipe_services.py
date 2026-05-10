@@ -16,6 +16,7 @@ from .exceptions import NotFoundError, ValidationError, ConflictError, AIService
 from .ingredients_services import get_or_create_ingredient
 from .transaction import atomic
 from . import ai_services as ai_service
+from . import household_service
 
 logger = logging.getLogger(__name__)
 
@@ -51,13 +52,20 @@ def _parse_quantity(qty: Any) -> Decimal:
 
 def _fetch_owned(recipe_id: int, user_id: int) -> Recipe:
     """
-    Fetch a recipe by ID ensuring it belongs to the given user.
-    Raises NotFoundError if the recipe doesn't exist or doesn't belong to the user.
+    Fetch a recipe by ID that the user can access: either they own it,
+    or it belongs to one of their households.
+    Raises NotFoundError if not found or not accessible.
     """
-
-    recipe = Recipe.query.filter_by(id=recipe_id, owner_user_id=user_id).first()
+    household_ids = household_service.get_user_household_ids(user_id)
+    recipe = Recipe.query.filter(
+        Recipe.id == recipe_id,
+        db.or_(
+            Recipe.owner_user_id == user_id,
+            db.and_(Recipe.household_id.isnot(None), Recipe.household_id.in_(household_ids))
+        )
+    ).first()
     if not recipe:
-        logger.warning("Recipe %d not found or not owned by user %d.", recipe_id, user_id)
+        logger.warning("Recipe %d not found or not accessible by user %d.", recipe_id, user_id)
         raise NotFoundError("Recipe not found.")
     return recipe
 
@@ -238,39 +246,49 @@ def generate_and_save_recipe(user_id: int, prompt: str) -> Recipe:
 
 def get_recipe(recipe_id: int, user_id: int) -> Recipe:
     """
-    Get a recipe by ID, or None if not found.
+    Get a recipe by ID that the user can access (owned or household-shared).
     """
-
     logger.debug("Fetching recipe %d for user %d.", recipe_id, user_id)
-
+    household_ids = household_service.get_user_household_ids(user_id)
     recipe = (
         Recipe.query
-        .filter_by(id=recipe_id, owner_user_id=user_id)
-        .options(joinedload(_qa(Recipe.recipe_ingredients))
-        .joinedload(_qa(RecipeIngredient.ingredient)))
+        .filter(
+            Recipe.id == recipe_id,
+            db.or_(
+                Recipe.owner_user_id == user_id,
+                db.and_(Recipe.household_id.isnot(None), Recipe.household_id.in_(household_ids))
+            )
+        )
+        .options(
+            joinedload(_qa(Recipe.recipe_ingredients))
+            .joinedload(_qa(RecipeIngredient.ingredient))
+        )
         .first()
     )
-
     if not recipe:
         logger.warning("Recipe %d not found for user %d.", recipe_id, user_id)
         raise NotFoundError("Recipe not found.")
-
     return recipe
 
 def list_recipes(user_id: int) -> List[Recipe]:
     """
-    Get all recipes for a user, ordered by newest first.
-    Eagerly loads ingredients to prevent N+1 query issues.
+    Get all recipes accessible to a user: owned by them, or shared via
+    a household they belong to. Ordered newest first.
     """
-
     logger.debug("Listing recipes for user %d.", user_id)
+    household_ids = household_service.get_user_household_ids(user_id)
     return (
         Recipe.query
         .options(
             joinedload(_qa(Recipe.recipe_ingredients))
             .joinedload(_qa(RecipeIngredient.ingredient))
         )
-        .filter_by(owner_user_id=user_id)
+        .filter(
+            db.or_(
+                Recipe.owner_user_id == user_id,
+                db.and_(Recipe.household_id.isnot(None), Recipe.household_id.in_(household_ids))
+            )
+        )
         .order_by(Recipe.created_at.desc())
         .all()
     )

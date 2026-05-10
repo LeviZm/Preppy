@@ -38,6 +38,7 @@ def create_app():
     jwt.init_app(flask_app)
 
     # register blueprints here to avoid circular imports at module import time
+    from .routes.ai_routes import ai_bp
     from .routes.auth_routes import auth_bp
     from .routes.ingredients_routes import ingredients_bp
     from .routes.meals_routes import meals_bp
@@ -45,7 +46,9 @@ def create_app():
     from .routes.shopping_routes import shopping_bp
     from .routes.oauth_routes import oauth_bp
     from .routes.user_routes import users_bp
+    from .routes.household_routes import households_bp
 
+    flask_app.register_blueprint(ai_bp)
     flask_app.register_blueprint(meals_bp)
     flask_app.register_blueprint(auth_bp)
     flask_app.register_blueprint(recipes_bp)
@@ -53,6 +56,7 @@ def create_app():
     flask_app.register_blueprint(shopping_bp)
     flask_app.register_blueprint(oauth_bp)
     flask_app.register_blueprint(users_bp)
+    flask_app.register_blueprint(households_bp)
 
     @flask_app.before_request
     def log_request():
