@@ -3,6 +3,7 @@ Settings for the Flask application.
 """
 
 import os
+from datetime import timedelta
 from dotenv import load_dotenv
 
 from urllib.parse import quote
@@ -74,3 +75,17 @@ class Config:
     SQLALCHEMY_TRACK_MODIFICATIONS: bool = False
 
     SECRET_KEY: str = os.environ.get("SECRET_KEY") or _require_secret_key()
+
+    # JWT Configuration
+    JWT_SECRET_KEY: str = os.environ.get("JWT_SECRET_KEY") or SECRET_KEY
+    JWT_ACCESS_TOKEN_EXPIRES: timedelta = timedelta(hours=8)
+    JWT_REFRESH_TOKEN_EXPIRES: timedelta = timedelta(days=30)
+
+    # Security settings
+    SESSION_COOKIE_SECURE: bool = False  # Set True in production for HTTPS only
+    SESSION_COOKIE_HTTPONLY: bool = True
+    SESSION_COOKIE_SAMESITE: str = "Lax"
+
+    # API settings
+    JSON_SORT_KEYS: bool = False
+    MAX_CONTENT_LENGTH: int = 16 * 1024 * 1024  # 16MB max request size
