@@ -7,7 +7,7 @@ import logging
 from flask import Blueprint, jsonify, Response, request
 from flask_jwt_extended import create_access_token, create_refresh_token, jwt_required, get_jwt_identity
 
-from ..services import auth_services as auth_service
+from ..services import user_service
 from ..services.exceptions import ValidationError, ConflictError, AuthError
 from ..serializers import user_to_dict
 
@@ -24,7 +24,7 @@ def login() -> tuple[Response, int]:
     password = payload.get("password", "")
 
     try:
-        access_token = auth_service.authenticate_user(email, password)
+        access_token = user_service.authenticate_user(email, password)
         refresh_token = create_refresh_token(identity=email)
         logger.info("Successful login for email: %r", email)
         return jsonify({"access_token": access_token, "refresh_token": refresh_token}), 200
@@ -38,9 +38,9 @@ def register() -> tuple[Response, int]:
     """Register a new user account."""
 
     payload = request.get_json(silent=True) or {}
-    
+
     try:
-        user = auth_service.register_user(payload)
+        user = user_service.register_user(payload)
         logger.info("New user registered: id=%d", user.id)
         return jsonify(user_to_dict(user)), 201
 
