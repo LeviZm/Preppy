@@ -2,6 +2,7 @@
 Settings for the Flask application.
 """
 
+import logging
 import os
 from datetime import timedelta
 from dotenv import load_dotenv
@@ -9,6 +10,8 @@ from dotenv import load_dotenv
 from urllib.parse import quote
 
 load_dotenv()
+
+logger = logging.getLogger(__name__)
 
 
 def _require_secret_key() -> str:
@@ -23,6 +26,29 @@ def _require_secret_key() -> str:
         "This key is required to sign JWT tokens for user authentication. "
         "Generate one with: python -c \"import secrets; print(secrets.token_hex(32))\""
     )
+
+
+def _validate_required_secrets() -> None:
+    """
+    Verify all required secrets are present at startup.
+    Fails loudly with the names of missing variables — never their values.
+    Skipped when TESTING=true (test suite uses mock/in-memory config).
+    """
+    if os.environ.get("TESTING", "").lower() in ("1", "true", "yes"):
+        return
+
+    required = {
+        "SECRET_KEY": os.environ.get("SECRET_KEY"),
+        "GOOGLE_API_KEY": os.environ.get("GOOGLE_API_KEY"),
+        "DATABASE_URL": os.environ.get("DATABASE_URL"),
+    }
+    missing = [key for key, val in required.items() if not val]
+    if missing:
+        raise RuntimeError(
+            f"Missing required environment variables: {', '.join(missing)}. "
+            f"Set them in your hosting platform or .env file before starting the server."
+        )
+    logger.info("Production configuration loaded. Required secrets: present.")
 
 
 def build_uri() -> str:
@@ -63,12 +89,17 @@ def build_uri() -> str:
         f"@{host}:{port}/{dbname}"
     )
 
+_IS_PRODUCTION: bool = os.environ.get("FLASK_ENV") == "production"
+
+
 class Config:
     """
     Base Flask configuration for the backend.
 
     The values here are loaded by the app factory so the same code can run in
     development, tests, and production with different environment variables.
+    In production (FLASK_ENV=production), stricter security settings are applied
+    automatically — no code changes required.
     """
 
     SQLALCHEMY_DATABASE_URI: str = build_uri()
@@ -81,8 +112,8 @@ class Config:
     JWT_ACCESS_TOKEN_EXPIRES: timedelta = timedelta(hours=8)
     JWT_REFRESH_TOKEN_EXPIRES: timedelta = timedelta(days=30)
 
-    # Security settings
-    SESSION_COOKIE_SECURE: bool = False  # Set True in production for HTTPS only
+    # Security settings — HTTPS-only cookies enabled automatically in production
+    SESSION_COOKIE_SECURE: bool = _IS_PRODUCTION
     SESSION_COOKIE_HTTPONLY: bool = True
     SESSION_COOKIE_SAMESITE: str = "Lax"
 

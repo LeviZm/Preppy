@@ -3,11 +3,12 @@ Flask Backend for the Preppy app.
 """
 
 import logging
+import os
 
 from dotenv import load_dotenv
 from flask import Flask, jsonify, request
 from .extensions import db, cors, migrate, jwt, limiter
-from .settings import Config
+from .settings import Config, _validate_required_secrets
 from .services.exceptions import AppError
 
 logger = logging.getLogger(__name__)
@@ -26,12 +27,17 @@ def create_app():
 
     flask_app = Flask(__name__)
 
+    _validate_required_secrets()
+
     flask_app.config.from_object(Config)
 
     db.init_app(flask_app)
-    
-    # Initialize other extensions
-    cors.init_app(flask_app)
+
+    # CORS: restrict to allowed origins from the environment.
+    # Development default: http://localhost:5173 (Vite dev server).
+    # Production: set CORS_ORIGINS=https://yourdomain.com in the platform.
+    allowed_origins = os.environ.get("CORS_ORIGINS", "http://localhost:5173").split(",")
+    cors.init_app(flask_app, resources={r"/api/*": {"origins": allowed_origins}})
     migrate.init_app(flask_app, db)
 
     # Initialize JWT (config loaded from Config class)
