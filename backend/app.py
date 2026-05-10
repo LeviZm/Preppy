@@ -70,37 +70,6 @@ def create_app():
 
         return jsonify({"message": "Preppy AI Backend is Running!"})
 
-    @flask_app.route('/api/generate-meal', methods=['POST'], strict_slashes=False)
-    def generate_meal():
-        """
-        This endpoint receives a POST request with a JSON body containing a 'prompt' key
-        for Gemini. It then processes the prompt and returns a json response from the Gemini API.
-        This generates a meal for the database.
-        """
-        # Validate the request sends a JSON body
-        if not request.is_json:
-            return jsonify({
-                "Error": "Unsupported Media Type",
-                "message": "Content-Type must be application/json"
-                }), 415
-
-        data = request.get_json()
-
-        # Check that the 'prompt' key exists
-        user_prompt = data.get('prompt')
-        if not user_prompt:
-            return jsonify({
-                "Error": "bad request",
-                "message": "The 'prompt' field is required."
-            }), 400
-
-        logger.info("generate-meal request received for prompt: %.80r", user_prompt)
-
-        return jsonify({
-            "status": "success",
-            "received": user_prompt,
-        }), 200
-
     @flask_app.errorhandler(429)
     def rate_limit_exceeded(_e):
         return jsonify({"error": "Too many requests. Please try again later."}), 429
