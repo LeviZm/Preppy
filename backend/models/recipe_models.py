@@ -33,6 +33,7 @@ class Recipe(db.Model):  # type: ignore[name-defined]
         db.Integer,
         db.ForeignKey("users.id", ondelete="CASCADE"),
         nullable=False,
+        index=True,
     )
 
     household_id = db.Column(

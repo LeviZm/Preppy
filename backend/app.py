@@ -4,9 +4,10 @@ Flask Backend for the Preppy app.
 
 import logging
 import os
+import time
 
 from dotenv import load_dotenv
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, g
 from .extensions import db, cors, migrate, jwt, limiter
 from .settings import Config, _validate_required_secrets
 from .services.exceptions import AppError
@@ -66,9 +67,20 @@ def create_app():
     flask_app.register_blueprint(households_bp)
 
     @flask_app.before_request
+    def start_timer():
+        g.start_time = time.perf_counter()
+
+    @flask_app.before_request
     def log_request():
         """Middleware to log incoming requests for debugging purposes."""
         logger.debug("Received %s %s", request.method, request.path)
+
+    @flask_app.after_request
+    def add_response_time_header(response):
+        if hasattr(g, "start_time"):
+            elapsed_ms = (time.perf_counter() - g.start_time) * 1000
+            response.headers["X-Response-Time"] = f"{elapsed_ms:.1f}ms"
+        return response
 
     @flask_app.route('/')
     def home():
