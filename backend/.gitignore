@@ -28,6 +28,13 @@ __pycache__/
 .env
 .dev.vars
 
+# Database files (local SQLite, etc. - never commit these!)
+instance/
+*.db
+*.sqlite
+*.sqlite3
+*.db-journal
+
 # Private AI Instructions
 PROMPT.md
 .github/copilot-instructions.md
