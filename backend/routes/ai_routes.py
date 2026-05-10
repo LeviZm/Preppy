@@ -16,6 +16,7 @@ from typing import Any
 from flask import Blueprint, jsonify, request
 from flask_jwt_extended import get_jwt_identity, jwt_required
 
+from ..extensions import limiter
 from ..serializers import recipe_to_dict
 from ..services import ai_services as ai_svc
 from ..services import meals_services, pantry_services, recipe_services
@@ -44,6 +45,7 @@ def _uid() -> int:
 
 @ai_bp.route("/meal-plan", methods=["POST"])
 @jwt_required()
+@limiter.limit("20 per day", key_func=lambda: str(get_jwt_identity()))
 def generate_meal_plan() -> Any:
     data = request.get_json(silent=True) or {}
     prompt = str(data.get("prompt") or "").strip()
@@ -96,6 +98,7 @@ def generate_meal_plan() -> Any:
 
 @ai_bp.route("/shopping-list", methods=["POST"])
 @jwt_required()
+@limiter.limit("20 per day", key_func=lambda: str(get_jwt_identity()))
 def generate_shopping_list() -> Any:
     user_id = _uid()
     data = request.get_json(silent=True) or {}
@@ -158,6 +161,7 @@ def generate_shopping_list() -> Any:
 
 @ai_bp.route("/modify-recipe/<int:recipe_id>", methods=["POST"])
 @jwt_required()
+@limiter.limit("20 per day", key_func=lambda: str(get_jwt_identity()))
 def modify_recipe(recipe_id: int) -> Any:
     user_id = _uid()
     data = request.get_json(silent=True) or {}
@@ -217,6 +221,7 @@ def modify_recipe(recipe_id: int) -> Any:
 
 @ai_bp.route("/scan-pantry", methods=["POST"])
 @jwt_required()
+@limiter.limit("20 per day", key_func=lambda: str(get_jwt_identity()))
 def scan_pantry() -> Any:
     user_id = _uid()
 
@@ -271,6 +276,7 @@ def scan_pantry() -> Any:
 
 @ai_bp.route("/scan-receipt", methods=["POST"])
 @jwt_required()
+@limiter.limit("20 per day", key_func=lambda: str(get_jwt_identity()))
 def scan_receipt() -> Any:
     user_id = _uid()
 
@@ -324,6 +330,7 @@ def scan_receipt() -> Any:
 
 @ai_bp.route("/suggest-from-pantry", methods=["POST"])
 @jwt_required()
+@limiter.limit("20 per day", key_func=lambda: str(get_jwt_identity()))
 def suggest_from_pantry() -> Any:
     user_id = _uid()
     data = request.get_json(silent=True) or {}

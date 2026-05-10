@@ -6,7 +6,7 @@ import logging
 
 from dotenv import load_dotenv
 from flask import Flask, jsonify, request
-from .extensions import db, cors, migrate, jwt
+from .extensions import db, cors, migrate, jwt, limiter
 from .settings import Config
 from .services.exceptions import AppError
 
@@ -36,6 +36,7 @@ def create_app():
 
     # Initialize JWT (config loaded from Config class)
     jwt.init_app(flask_app)
+    limiter.init_app(flask_app)
 
     # register blueprints here to avoid circular imports at module import time
     from .routes.ai_routes import ai_bp
@@ -99,6 +100,10 @@ def create_app():
             "status": "success",
             "received": user_prompt,
         }), 200
+
+    @flask_app.errorhandler(429)
+    def rate_limit_exceeded(_e):
+        return jsonify({"error": "Too many requests. Please try again later."}), 429
 
     @flask_app.errorhandler(400)
     def bad_request(e):

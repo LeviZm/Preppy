@@ -7,6 +7,7 @@ import logging
 from flask import Blueprint, jsonify, Response, request
 from flask_jwt_extended import create_access_token, create_refresh_token, jwt_required, get_jwt_identity
 
+from ..extensions import limiter
 from ..services import user_service
 from ..services.exceptions import ValidationError, ConflictError, AuthError
 from ..serializers import user_to_dict
@@ -16,6 +17,7 @@ auth_bp = Blueprint("auth", __name__, url_prefix="/api/auth")
 logger = logging.getLogger(__name__)
 
 @auth_bp.route("/login", methods=["POST"])
+@limiter.limit("20 per hour")
 def login() -> tuple[Response, int]:
     """Authenticate a user and return access + refresh tokens."""
 
@@ -34,6 +36,7 @@ def login() -> tuple[Response, int]:
         return jsonify({"error": str(e)}), 401
 
 @auth_bp.route("/register", methods=["POST"])
+@limiter.limit("10 per hour")
 def register() -> tuple[Response, int]:
     """Register a new user account."""
 

@@ -7,6 +7,7 @@ import logging
 from flask import Blueprint, jsonify, Response, request
 from flask_jwt_extended import get_jwt_identity, jwt_required
 
+from ..extensions import limiter
 from ..serializers import recipe_to_dict
 from ..services import (
     recipe_services as recipe_service
@@ -163,6 +164,7 @@ def handle_delete_recipe(recipe_id: int) -> tuple[Response, int]:
 
 @recipes_bp.route("/generate", methods=["POST"])
 @jwt_required()
+@limiter.limit("20 per day", key_func=lambda: str(get_jwt_identity()))
 def handle_generate_recipe() -> tuple[Response, int]:
     """Generate a recipe based on user input using the AI pipeline."""
 
