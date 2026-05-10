@@ -43,12 +43,16 @@ def create_app():
     from .routes.meals_routes import meals_bp
     from .routes.recipe_routes import recipes_bp
     from .routes.shopping_routes import shopping_bp
+    from .routes.oauth_routes import oauth_bp
+    from .routes.user_routes import users_bp
 
     flask_app.register_blueprint(meals_bp)
     flask_app.register_blueprint(auth_bp)
     flask_app.register_blueprint(recipes_bp)
     flask_app.register_blueprint(ingredients_bp)
     flask_app.register_blueprint(shopping_bp)
+    flask_app.register_blueprint(oauth_bp)
+    flask_app.register_blueprint(users_bp)
 
     @flask_app.before_request
     def log_request():
