@@ -5,7 +5,7 @@ Routes for recipe CRUD operations.
 import logging
 from typing import Any
 
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, Response, request
 from flask_jwt_extended import get_jwt_identity, jwt_required
 
 from ..serializers import recipe_to_dict
@@ -13,19 +13,12 @@ from ..services import (
     recipe_services as recipe_service,
     ai_services as ai_service
 )
+
 from ..services.exceptions import NotFoundError, ValidationError, ConflictError
 
 recipes_bp = Blueprint("recipes", __name__, url_prefix="/api/recipes")
 
 logger = logging.getLogger(__name__)
-
-# Error Handler
-@recipes_bp.errorhandler(Exception)
-def handle_unexpected_error(e: Exception) -> Any:
-    """Handle unexpected exceptions and return a generic error message."""
-    
-    logger.exception("Unhandled exception in recipes blueprint: %s", e)
-    return jsonify({"error": "An unexpected error occurred."}), 500
 
 # ----------------------------------------------------------------
 # Route Handlers
@@ -34,7 +27,7 @@ def handle_unexpected_error(e: Exception) -> Any:
 # Getters
 @recipes_bp.route("/<int:recipe_id>", methods=["GET"])
 @jwt_required()
-def handle_get_recipe(recipe_id: int) -> Any:
+def handle_get_recipe(recipe_id: int) -> tuple[Response, int]:
     """Get a recipe by ID."""
 
     user_id = int(get_jwt_identity())
@@ -49,20 +42,8 @@ def handle_get_recipe(recipe_id: int) -> Any:
 
 @recipes_bp.route("/", methods=["GET"])
 @jwt_required()
-def handle_get_all_recipes() -> Any:
-    """Get all recipes."""
-
-    user_id = int(get_jwt_identity())
-    items = recipe_service.list_recipes(user_id)
-
-    results = [recipe_to_dict(recipe, include_ingredients=False) for recipe in items]
-    return jsonify({"recipes": results}), 200
-
-
-@recipes_bp.route("/user", methods=["GET"])
-@jwt_required()
-def handle_get_recipes_by_user() -> Any:
-    """Get all recipes for the current user."""
+def handle_list_recipes() -> tuple[Response, int]:
+    """Get (and list) all recipes for the current user."""
 
     user_id = int(get_jwt_identity())
     items = recipe_service.list_recipes(user_id)
@@ -73,7 +54,7 @@ def handle_get_recipes_by_user() -> Any:
 # POSTers
 @recipes_bp.route("/", methods=["POST"])
 @jwt_required()
-def handle_create_recipe() -> Any:
+def handle_create_recipe() -> tuple[Response, int]:
     """Create a new recipe."""
 
     user_id = int(get_jwt_identity())
@@ -94,7 +75,7 @@ def handle_create_recipe() -> Any:
 
 @recipes_bp.route("/<int:recipe_id>/ingredients", methods=["POST"])
 @jwt_required()
-def handle_add_ingredient_to_recipe(recipe_id: int) -> Any:
+def handle_add_ingredient_to_recipe(recipe_id: int) -> tuple[Response, int]:
     """Add an ingredient to a recipe."""
 
     user_id = int(get_jwt_identity())
@@ -115,7 +96,7 @@ def handle_add_ingredient_to_recipe(recipe_id: int) -> Any:
 # PATCHers
 @recipes_bp.route("/<int:recipe_id>", methods=["PATCH"])
 @jwt_required()
-def handle_update_recipe(recipe_id: int) -> Any:
+def handle_update_recipe(recipe_id: int) -> tuple[Response, int]:
     """Update a recipe's name, instructions, and/or ingredients."""
 
     user_id = int(get_jwt_identity())
@@ -141,7 +122,7 @@ def handle_update_recipe(recipe_id: int) -> Any:
 # DELETErs
 @recipes_bp.route("/<int:recipe_id>/ingredients/<int:ingredient_id>", methods=["DELETE"])
 @jwt_required()
-def handle_remove_ingredient_from_recipe(recipe_id: int, ingredient_id: int) -> Any:
+def handle_remove_ingredient_from_recipe(recipe_id: int, ingredient_id: int) -> tuple[Response, int]:
     """Remove an ingredient from a recipe."""
 
     user_id = int(get_jwt_identity())
@@ -156,7 +137,7 @@ def handle_remove_ingredient_from_recipe(recipe_id: int, ingredient_id: int) -> 
 
 @recipes_bp.route("/<int:recipe_id>", methods=["DELETE"])
 @jwt_required()
-def handle_delete_recipe(recipe_id: int) -> Any:
+def handle_delete_recipe(recipe_id: int) -> tuple[Response, int]:
     """Delete a recipe by ID."""
 
     user_id = int(get_jwt_identity())
@@ -175,7 +156,7 @@ def handle_delete_recipe(recipe_id: int) -> Any:
 
 @recipes_bp.route("/generate", methods=["POST"])
 @jwt_required()
-def handle_generate_recipe():
+def handle_generate_recipe() -> tuple[Response, int]:
     """Generate a recipe based on user input. Placeholder implementation."""
 
     user_id = get_jwt_identity()
