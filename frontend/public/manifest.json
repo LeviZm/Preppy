@@ -1,0 +1,27 @@
+{
+  "short_name": "Preppy"
+  "name": "Preppy Collaborative PWA",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#0ea5a4",
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Generate Meal",
+      "url": "/generate",
+      "icons": [{ "src": "/icons/shortcut-generate.png", "sizes": "96x96" }]
+    }
+  ]
+}
