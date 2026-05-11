@@ -40,7 +40,8 @@ export function isRecipe(v: unknown): v is Recipe {
 // ---------------------------------------------------------------------------
 
 export async function getRecipes(): Promise<Recipe[]> {
-  const data: unknown[] = await handleResponse(await apiRequest("/recipes/"));
+  const envelope = await handleResponse(await apiRequest("/recipes/"));
+  const data: unknown[] = Array.isArray(envelope) ? envelope : (envelope as Record<string, unknown>)?.recipes as unknown[] ?? [];
   if (!Array.isArray(data)) throw new Error("Received unexpected data from the server.");
   const valid = data.filter(isRecipe);
   if (valid.length < data.length)
