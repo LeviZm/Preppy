@@ -12,7 +12,7 @@ import { login as apiLogin, logout as apiLogout, register as apiRegister, type L
 
 // TypeScript: describe what the context contains
 interface AuthContextType {
-  user: LoginResponse["user"] | null;  // null = not logged in
+  user: LoginResponse["user"] | Record<string, never> | null;  // null = not logged in
   sessionExpired: boolean;              // true if 401 triggered redirect
   login: (email: string, password: string) => Promise<void>;
   logout: () => void;
@@ -30,7 +30,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
  */
 export function AuthProvider({ children }: { children: ReactNode }) {
   // React state: when these change, React re-renders components using them
-  const [user, setUser] = useState<LoginResponse["user"] | null>(null);
+  const [user, setUser] = useState<LoginResponse["user"] | Record<string, never> | null>(null);
   const [sessionExpired, setSessionExpired] = useState(false);
 
   /**
@@ -48,7 +48,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Login function: calls API, updates state
   async function login(email: string, password: string): Promise<void> {
     const data = await apiLogin(email, password);
-    setUser(data.user || null);
+    setUser(data.user || {});
     setSessionExpired(false);
   }
 
@@ -61,7 +61,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Register function: same as login (API returns token)
   async function register(username: string, email: string, password: string): Promise<void> {
     const data = await apiRegister(username, email, password);
-    setUser(data.user || null);
+    setUser(data.user || {});
     setSessionExpired(false);
   }
 
