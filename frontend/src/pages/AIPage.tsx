@@ -153,7 +153,7 @@ function GenerateRecipePanel() {
     setResult(null);
     try {
       const data = await generateRecipe(prompt);
-      setResult(data.recipe ?? (data as unknown as { recipe: typeof result }).recipe);
+      setResult((data as unknown as { recipe: typeof result }).recipe ?? (data as unknown as typeof result));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Generation failed");
     } finally {

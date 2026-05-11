@@ -64,9 +64,10 @@ export async function createRecipe(payload: CreateRecipePayload): Promise<Recipe
 }
 
 export async function updateRecipe(id: number, payload: UpdateRecipePayload): Promise<Recipe> {
-  const data: unknown = await handleResponse(
+  const envelope = await handleResponse(
     await apiRequest(`/recipes/${id}`, { method: "PATCH", body: JSON.stringify(payload) })
   );
+  const data: unknown = (envelope as Record<string, unknown>)?.recipe ?? envelope;
   if (!isRecipe(data)) throw new Error("Recipe was updated but the server returned unexpected data.");
   return data;
 }
@@ -75,6 +76,9 @@ export async function deleteRecipe(id: number): Promise<void> {
   await handleResponse(await apiRequest(`/recipes/${id}`, { method: "DELETE" }));
 }
 
-export async function generateRecipe(payload: GenerateRecipePayload): Promise<{ recipe: Recipe }> {
-  return handleResponse(await apiRequest("/recipes/generate", { method: "POST", body: JSON.stringify(payload) }));
+export async function generateRecipe(payload: GenerateRecipePayload): Promise<Recipe> {
+  const data: unknown = await handleResponse(await apiRequest("/recipes/generate", { method: "POST", body: JSON.stringify(payload) }));
+  const recipe: unknown = (data as Record<string, unknown>)?.recipe ?? data;
+  if (!isRecipe(recipe)) throw new Error("Recipe was generated but the server returned unexpected data.");
+  return recipe;
 }

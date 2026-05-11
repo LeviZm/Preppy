@@ -8,7 +8,8 @@ export async function getMealPlans(start?: string, end?: string): Promise<MealPl
   if (start) params.set("start", start);
   if (end) params.set("end", end);
   const qs = params.toString() ? `?${params}` : "";
-  return handleResponse(await apiRequest(`/meals/plans${qs}`));
+  const envelope = await handleResponse(await apiRequest(`/meals/plans${qs}`));
+  return (Array.isArray(envelope) ? envelope : (envelope as Record<string, unknown>)?.meal_plans) as MealPlan[] ?? [];
 }
 
 export async function createMealPlan(payload: CreateMealPlanPayload): Promise<MealPlan> {
