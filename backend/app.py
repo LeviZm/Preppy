@@ -38,7 +38,12 @@ def create_app():
     # Development default: http://localhost:5173 (Vite dev server).
     # Production: set CORS_ORIGINS=https://yourdomain.com in the platform.
     allowed_origins = os.environ.get("CORS_ORIGINS", "http://localhost:5173").split(",")
-    cors.init_app(flask_app, resources={r"/api/*": {"origins": allowed_origins}})
+    cors.init_app(flask_app, resources={r"/api/*": {
+        "origins": allowed_origins,
+        "methods": ["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"],
+        "allow_headers": ["Content-Type", "Authorization"],
+        "supports_credentials": True,
+    }})
     migrate.init_app(flask_app, db)
 
     # Initialize JWT (config loaded from Config class)
