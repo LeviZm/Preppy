@@ -81,7 +81,7 @@ export function PantryPage() {
           >
             Scan receipt
           </Button>
-          <input ref={receiptRef} type="file" accept="image/*" className="hidden" onChange={handleReceiptScan} />
+          <input ref={receiptRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handleReceiptScan} />
           <Button
             variant="secondary"
             icon={scanning ? undefined : <Camera size={15} />}
@@ -90,7 +90,7 @@ export function PantryPage() {
           >
             Scan fridge
           </Button>
-          <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleScan} />
+          <input ref={fileRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handleScan} />
           <Button icon={<Plus size={16} />} onClick={() => setShowForm(!showForm)}>
             Add item
           </Button>
