@@ -175,25 +175,27 @@ function InviteForm({ householdId, onInvited }: { householdId: number; onInvited
   const isSubmitting = status === "submitting";
 
   return (
-    <form onSubmit={handleSubmit} className="flex gap-2 items-end border-t border-stone-100 pt-3">
-      {status === "error" && errorMessage && (
-        <p role="alert" className="text-xs text-clay-500 w-full mb-1">{errorMessage}</p>
-      )}
-      <div className="flex-1">
-        <Input
-          id={`invite-${householdId}`}
-          name="email"
-          label="Invite by email"
-          type="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          placeholder="partner@example.com"
-          disabled={isSubmitting}
-        />
+    <form onSubmit={handleSubmit} className="flex flex-col gap-2 border-t border-stone-100 pt-3">
+      <div className="flex gap-2 items-end">
+        <div className="flex-1">
+          <Input
+            id={`invite-${householdId}`}
+            name="email"
+            label="Invite by email"
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="partner@example.com"
+            disabled={isSubmitting}
+          />
+        </div>
+        <Button type="submit" loading={isSubmitting} icon={<Plus size={14} />}>
+          {isSubmitting ? "Inviting…" : "Invite"}
+        </Button>
       </div>
-      <Button type="submit" loading={isSubmitting} icon={<Plus size={14} />}>
-        {isSubmitting ? "Inviting…" : "Invite"}
-      </Button>
+      {status === "error" && errorMessage && (
+        <p role="alert" className="text-xs text-clay-500">{errorMessage}</p>
+      )}
     </form>
   );
 }
