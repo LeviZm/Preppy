@@ -107,10 +107,12 @@ export async function apiRequest(
 ): Promise<Response | undefined> {
   const shouldAttachToken = !isPublicPath(path) && _token !== null;
 
+  const isMultipartBody = typeof FormData !== "undefined" && options.body instanceof FormData;
+
   const headers: Record<string, string> = {
-    "Content-Type": "application/json",
+    ...(isMultipartBody ? {} : { "Content-Type": "application/json" }),
     ...(shouldAttachToken ? { Authorization: `Bearer ${_token}` } : {}),
-    ...(options.headers as Record<string, string> | undefined ?? {}),
+    ...((options.headers as Record<string, string> | undefined) ?? {}),
   };
 
   let response: Response;

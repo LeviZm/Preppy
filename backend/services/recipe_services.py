@@ -50,6 +50,16 @@ def _parse_quantity(qty: Any) -> Decimal:
         return Decimal(0)
 
 
+def _normalize_text(value: Any, default: str = "") -> str:
+    """Convert optional text-like values to a stripped string with a fallback."""
+
+    if value is None:
+        return default
+
+    text = str(value).strip()
+    return text or default
+
+
 def _fetch_owned(recipe_id: int, user_id: int) -> Recipe:
     """
     Fetch a recipe by ID that the user can access: either they own it,
@@ -176,8 +186,8 @@ def create_recipe(user_id: int, payload: Dict[str, Any]) -> Recipe:
                 quantity = 1.0
         else:
             quantity = 1.0
-            
-        unit = ingredient_data.get("unit", "").strip() or "unit"
+        
+        unit = _normalize_text(ingredient_data.get("unit"), "unit")
         prep_note = ingredient_data.get("prep_note")
         
         recipe_ingredient = RecipeIngredient(
@@ -185,7 +195,7 @@ def create_recipe(user_id: int, payload: Dict[str, Any]) -> Recipe:
             ingredient_id=ingredient.id,
             quantity=float(quantity),
             unit=unit,
-            prep_note=prep_note.strip() if prep_note else None,
+            prep_note=_normalize_text(prep_note) or None,
             sort_order=sort_order
         )
         db.session.add(recipe_ingredient)
@@ -358,8 +368,8 @@ def add_ingredient_to_recipe(
             recipe_id=recipe.id,
             ingredient_id=ing.id,
             quantity=_parse_quantity(ingredient_data.get("quantity", 0)),
-            unit=ingredient_data.get("unit") or "unit",
-            prep_note=ingredient_data.get("prep_note"),
+            unit=_normalize_text(ingredient_data.get("unit"), "unit"),
+            prep_note=_normalize_text(ingredient_data.get("prep_note")) or None,
             sort_order=ingredient_data.get("sort_order", 0),
         )
         db.session.add(ri)

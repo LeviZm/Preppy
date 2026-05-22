@@ -1,4 +1,4 @@
-import { apiRequest, getToken, handleResponse } from "./client";
+import { apiRequest, handleResponse } from "./client";
 import type {
   AIRecipe,
   AIMealPlanDay,
@@ -50,16 +50,9 @@ async function _uploadImage(endpoint: string, imageFile: File): Promise<ScanResu
   formData.append("image", imageFile);
   formData.append("save", "true");
 
-  const token = getToken();
-  const headers: Record<string, string> = {};
-  if (token) headers["Authorization"] = `Bearer ${token}`;
-
-  const res = await fetch(endpoint, { method: "POST", headers, body: formData });
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    throw new Error(body.error || "Scan failed");
-  }
-  return res.json();
+  return handleResponse(
+    await apiRequest(endpoint, { method: "POST", body: formData })
+  );
 }
 
 export async function scanReceipt(imageFile: File): Promise<ScanResult> {
