@@ -206,16 +206,74 @@ function RecipeDetail({ recipe, deleteStatus, deleteError, onDelete, onCancelDel
 }
 
 type FormStatus = "idle" | "submitting" | "error";
-const EMPTY_FIELDS = { name: "", instructions: "" };
+
+type IngredientDraft = {
+  name: string;
+  quantity: string;
+  unit: string;
+  prep_note: string;
+};
+
+type RecipeFormFields = {
+  name: string;
+  instructions: string;
+  ingredients: IngredientDraft[];
+};
+
+function createEmptyIngredient(): IngredientDraft {
+  return {
+    name: "",
+    quantity: "",
+    unit: "",
+    prep_note: "",
+  };
+}
+
+function createEmptyFields(): RecipeFormFields {
+  return {
+    name: "",
+    instructions: "",
+    ingredients: [createEmptyIngredient()],
+  };
+}
 
 function RecipeForm({ onCreated }: { onCreated: () => void }) {
-  const [fields, setFields] = useState(EMPTY_FIELDS);
+  const [fields, setFields] = useState<RecipeFormFields>(createEmptyFields());
   const [status, setStatus] = useState<FormStatus>("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) {
     const { name, value } = e.target;
     setFields(prev => ({ ...prev, [name]: value }));
+  }
+
+  function handleIngredientChange(index: number, field: keyof IngredientDraft, value: string) {
+    setFields(prev => ({
+      ...prev,
+      ingredients: prev.ingredients.map((ingredient, ingredientIndex) => (
+        ingredientIndex === index ? { ...ingredient, [field]: value } : ingredient
+      )),
+    }));
+  }
+
+  function addIngredient() {
+    setFields(prev => ({
+      ...prev,
+      ingredients: [...prev.ingredients, createEmptyIngredient()],
+    }));
+  }
+
+  function removeIngredient(index: number) {
+    setFields(prev => {
+      if (prev.ingredients.length <= 1) {
+        return { ...prev, ingredients: [createEmptyIngredient()] };
+      }
+
+      return {
+        ...prev,
+        ingredients: prev.ingredients.filter((_, ingredientIndex) => ingredientIndex !== index),
+      };
+    });
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -228,11 +286,36 @@ function RecipeForm({ onCreated }: { onCreated: () => void }) {
       return;
     }
 
+    const ingredients = fields.ingredients
+      .map((ingredient) => ({
+        name: ingredient.name.trim(),
+        quantity: ingredient.quantity.trim(),
+        unit: ingredient.unit.trim(),
+        prep_note: ingredient.prep_note.trim(),
+      }))
+      .filter((ingredient) => ingredient.name.length > 0)
+      .map((ingredient) => ({
+        name: ingredient.name,
+        quantity: ingredient.quantity || undefined,
+        unit: ingredient.unit || undefined,
+        prep_note: ingredient.prep_note || undefined,
+      }));
+
+    if (ingredients.length === 0) {
+      setStatus("error");
+      setErrorMessage("Add at least one ingredient before saving the recipe.");
+      return;
+    }
+
     setStatus("submitting");
     setErrorMessage(null);
     try {
-      await createRecipe(fields);
-      setFields(EMPTY_FIELDS);
+      await createRecipe({
+        name: fields.name.trim(),
+        instructions: fields.instructions.trim(),
+        ingredients,
+      });
+      setFields(createEmptyFields());
       setStatus("idle");
       onCreated();
     } catch (err) {
@@ -273,6 +356,69 @@ function RecipeForm({ onCreated }: { onCreated: () => void }) {
           disabled={isSubmitting}
           rows={4}
         />
+        <div className="space-y-3">
+          <div className="flex items-center justify-between gap-3">
+            <label className="text-sm font-medium text-stone-700">Ingredients</label>
+            <button
+              type="button"
+              onClick={addIngredient}
+              disabled={isSubmitting}
+              className="text-sm font-medium text-sage-600 hover:text-sage-700 disabled:opacity-50"
+            >
+              Add ingredient
+            </button>
+          </div>
+
+          {fields.ingredients.map((ingredient, index) => (
+            <div key={index} className="space-y-3 rounded-2xl border border-stone-200 bg-stone-50 p-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <Input
+                  id={`ingredient-name-${index}`}
+                  label="Ingredient name"
+                  value={ingredient.name}
+                  onChange={(e) => handleIngredientChange(index, "name", e.target.value)}
+                  placeholder="Chicken breast"
+                  disabled={isSubmitting}
+                />
+                <Input
+                  id={`ingredient-quantity-${index}`}
+                  label="Quantity"
+                  value={ingredient.quantity}
+                  onChange={(e) => handleIngredientChange(index, "quantity", e.target.value)}
+                  placeholder="2"
+                  disabled={isSubmitting}
+                />
+              </div>
+
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
+                <Input
+                  id={`ingredient-unit-${index}`}
+                  label="Unit"
+                  value={ingredient.unit}
+                  onChange={(e) => handleIngredientChange(index, "unit", e.target.value)}
+                  placeholder="cups"
+                  disabled={isSubmitting}
+                />
+                <Input
+                  id={`ingredient-prep-${index}`}
+                  label="Prep note"
+                  value={ingredient.prep_note}
+                  onChange={(e) => handleIngredientChange(index, "prep_note", e.target.value)}
+                  placeholder="chopped, optional"
+                  disabled={isSubmitting}
+                />
+                <button
+                  type="button"
+                  onClick={() => removeIngredient(index)}
+                  disabled={isSubmitting}
+                  className="text-sm font-medium text-stone-500 hover:text-clay-500 disabled:opacity-50 sm:pb-2"
+                >
+                  Remove
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
         <div className="flex gap-2 justify-end">
           <Button type="submit" loading={isSubmitting}>
             {isSubmitting ? "Saving…" : "Save recipe"}
