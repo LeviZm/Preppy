@@ -18,8 +18,8 @@ function isRecipeIngredient(v: unknown): v is RecipeIngredient {
   const r = v as Record<string, unknown>;
   return (
     typeof r.id === "number" &&
-    typeof r.ingredient_id === "number" &&
-    typeof r.ingredient_name === "string"
+    typeof r.name === "string" &&
+    typeof r.sort_order === "number"
   );
 }
 
@@ -30,8 +30,8 @@ export function isRecipe(v: unknown): v is Recipe {
     typeof r.id === "number" &&
     typeof r.name === "string" &&
     r.name.trim().length > 0 &&
-    Array.isArray(r.recipe_ingredients) &&
-    (r.recipe_ingredients as unknown[]).every(isRecipeIngredient)
+    Array.isArray(r.ingredients) &&
+    (r.ingredients as unknown[]).every(isRecipeIngredient)
   );
 }
 

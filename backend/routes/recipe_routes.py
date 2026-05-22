@@ -54,7 +54,7 @@ def handle_list_recipes() -> tuple[Response, int]:
     user_id = int(get_jwt_identity())
     items = recipe_service.list_recipes(user_id)
 
-    results = [recipe_to_dict(recipe, include_ingredients=False) for recipe in items]
+    results = [recipe_to_dict(recipe) for recipe in items]
     return jsonify({"recipes": results}), 200
 
 # POSTers

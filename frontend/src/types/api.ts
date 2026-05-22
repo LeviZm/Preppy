@@ -34,11 +34,11 @@ export interface RegisterPayload {
 
 export interface RecipeIngredient {
   id: number;
-  ingredient_id: number;
-  ingredient_name: string;
+  name: string;
   quantity: string | null;
   unit: string | null;
   prep_note: string | null;
+  sort_order: number;
 }
 
 export interface Recipe {
@@ -48,7 +48,7 @@ export interface Recipe {
   created_at: string;
   owner_user_id: number;
   household_id: number | null;
-  recipe_ingredients: RecipeIngredient[];
+  ingredients: RecipeIngredient[];
 }
 
 export interface CreateRecipePayload {

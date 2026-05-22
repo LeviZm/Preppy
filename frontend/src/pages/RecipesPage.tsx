@@ -151,11 +151,11 @@ function RecipeDetail({ recipe, deleteStatus, deleteError, onDelete, onCancelDel
 }) {
   return (
     <div className="space-y-4">
-      {recipe.recipe_ingredients && recipe.recipe_ingredients.length > 0 && (
+      {recipe.ingredients && recipe.ingredients.length > 0 && (
         <div>
           <h3 className="text-xs font-semibold text-stone-500 uppercase tracking-wide mb-2">Ingredients</h3>
           <ul className="space-y-1">
-            {recipe.recipe_ingredients.map((ing, i) => (
+            {recipe.ingredients.map((ing, i) => (
               <li key={i} className="text-sm text-stone-700 font-mono">
                 {formatIngredient(ing)}
                 {ing.prep_note && <span className="font-sans text-stone-400">, {ing.prep_note}</span>}
@@ -172,7 +172,7 @@ function RecipeDetail({ recipe, deleteStatus, deleteError, onDelete, onCancelDel
         </div>
       )}
 
-      {!recipe.instructions && (!recipe.recipe_ingredients || recipe.recipe_ingredients.length === 0) && (
+      {!recipe.instructions && (!recipe.ingredients || recipe.ingredients.length === 0) && (
         <p className="text-sm text-stone-400 italic">No details added yet.</p>
       )}
 
