@@ -1,0 +1,41 @@
+name: Supabase Keep-Alive
+
+# Pings the Preppy Supabase project's REST API twice a week so it
+# never hits Supabase's 7-day free-tier inactivity pause. Runs entirely
+# on GitHub's infrastructure — independent of any Claude subscription.
+
+on:
+  schedule:
+    - cron: '0 13 * * 1,4'   # 9:00 AM US Eastern (UTC-4), Mondays & Thursdays
+  workflow_dispatch: {}       # lets you trigger it manually from the Actions tab
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Supabase database
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: |
+          set +e
+          attempt=1
+          max_attempts=5
+          until [ $attempt -gt $max_attempts ]; do
+            status=$(curl -s -o /dev/null -w "%{http_code}" \
+              "$SUPABASE_URL/rest/v1/alembic_version?select=version_num&limit=1" \
+              -H "apikey: $SUPABASE_ANON_KEY" \
+              -H "Authorization: Bearer $SUPABASE_ANON_KEY")
+
+            if [ "$status" = "200" ]; then
+              echo "Ping succeeded on attempt $attempt (HTTP $status)"
+              exit 0
+            fi
+
+            echo "Attempt $attempt failed (HTTP $status)"
+            attempt=$((attempt + 1))
+            [ $attempt -le $max_attempts ] && sleep 15
+          done
+
+          echo "::error::Supabase keep-alive ping failed after $max_attempts attempts"
+          exit 1
