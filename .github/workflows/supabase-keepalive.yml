@@ -17,15 +17,22 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: |
           set +e
+          auth_token="${SUPABASE_SERVICE_ROLE_KEY:-$SUPABASE_ANON_KEY}"
+          if [ -z "$SUPABASE_URL" ] || [ -z "$auth_token" ]; then
+            echo "::error::SUPABASE_URL and either SUPABASE_SERVICE_ROLE_KEY or SUPABASE_ANON_KEY must be configured"
+            exit 1
+          fi
+
           attempt=1
           max_attempts=5
           until [ $attempt -gt $max_attempts ]; do
             status=$(curl -s -o /dev/null -w "%{http_code}" \
               "$SUPABASE_URL/rest/v1/alembic_version?select=version_num&limit=1" \
-              -H "apikey: $SUPABASE_ANON_KEY" \
-              -H "Authorization: Bearer $SUPABASE_ANON_KEY")
+              -H "apikey: $auth_token" \
+              -H "Authorization: Bearer $auth_token")
 
             if [ "$status" = "200" ]; then
               echo "Ping succeeded on attempt $attempt (HTTP $status)"
