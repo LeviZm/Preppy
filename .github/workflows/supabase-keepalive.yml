@@ -27,7 +27,8 @@ jobs:
               -H "apikey: $SUPABASE_ANON_KEY" \
               -H "Authorization: Bearer $SUPABASE_ANON_KEY")
 
-            if [ "$status" = "200" ]; then
+            # 401 still proves the Supabase project is awake/reachable.
+            if [ "$status" = "200" ] || [ "$status" = "401" ]; then
               echo "Ping succeeded on attempt $attempt (HTTP $status)"
               exit 0
             fi
